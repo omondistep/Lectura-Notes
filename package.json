@@ -1,0 +1,38 @@
+{
+  "name": "lectura",
+  "version": "1.0.0",
+  "description": "Markdown note-taking app with cloud sync",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build-linux": "electron-builder --linux",
+    "build-win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.lectura.app",
+    "productName": "Lectura",
+    "files": [
+      "**/*",
+      "!notes/**/*",
+      "!.git/**/*",
+      "!__pycache__/**/*",
+      "!*.log"
+    ],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office",
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    }
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}

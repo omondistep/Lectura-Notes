@@ -289,14 +289,27 @@ html, body {
 }
 
 /* app brand */
-.app-title {
-  font-weight: 700;
-  font-size: .82rem;
-  color: var(--text);
-  letter-spacing: .02em;
-  white-space: nowrap;
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.app-title span { color: var(--accent); }
+
+.app-logo svg {
+  flex-shrink: 0;
+}
+
+.app-title {
+  font-weight: 600;
+  font-size: 1rem;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+}
 
 /* thin vertical dividers */
 .sep, .tb-sep {
@@ -652,6 +665,14 @@ html, body {
   list-style: none;
   overflow: hidden;
 }
+
+/* Files inside folders - add left border and indent */
+#file-list .tree-children li.tree-file {
+  margin-left: 8px;
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+}
+
 #file-list li.tree-file:hover { background: var(--bg-hover); }
 
 #file-list li.tree-file > span {
@@ -661,6 +682,12 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+}
+
+/* Add file icon prefix */
+#file-list li.tree-file > span::before {
+  content: "📄 ";
+  opacity: 0.7;
 }
 
 /* Ensure sidebar items adopt theme colors */
@@ -706,7 +733,8 @@ html, body {
   background: var(--bg-hover);
 }
 
-#file-list li.drag-over {
+#file-list li.drag-over,
+#file-list .folder-header.drag-over {
   background: rgba(59, 130, 246, 0.15);
   border: 1px dashed var(--accent-2);
 }

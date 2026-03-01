@@ -613,10 +613,29 @@ function insertSnippet(text) {
 }
 
 function insertBlock(text) {
-  const { from } = view.state.selection.main;
+  const { from } = view.state.doc.lineAt(from);
   const line = view.state.doc.lineAt(from);
   const insert = line.text.trim() === "" ? text + "\n" : "\n" + text + "\n";
   view.dispatch({ changes: { from: line.to, insert } });
+  view.focus();
+}
+
+function removeLineStart(pattern) {
+  const { from, to } = view.state.selection.main;
+  const startLine = view.state.doc.lineAt(from);
+  const endLine = view.state.doc.lineAt(to);
+
+  const changes = [];
+  for (let ln = startLine.number; ln <= endLine.number; ln++) {
+    const line = view.state.doc.line(ln);
+    const match = line.text.match(pattern);
+    if (match) {
+      changes.push({ from: line.from, to: line.from + match[0].length, insert: "" });
+    }
+  }
+  if (changes.length > 0) {
+    view.dispatch({ changes });
+  }
   view.focus();
 }
 
@@ -628,11 +647,20 @@ const ACTIONS = {
   image:      () => { document.getElementById("image-input").click(); },
   h1:         () => insertAtLineStart("# "),
   h2:         () => insertAtLineStart("## "),
+  h3:         () => insertAtLineStart("### "),
+  h4:         () => insertAtLineStart("#### "),
+  h5:         () => insertAtLineStart("##### "),
+  h6:         () => insertAtLineStart("###### "),
+  paragraph:  () => removeLineStart(/^#{1,6}\s+/),
   ul:         () => insertAtLineStart("- "),
   ol:         () => insertAtLineStart("1. "),
   task:       () => insertAtLineStart("- [ ] "),
   blockquote: () => insertAtLineStart("> "),
+  codeblock:  () => insertSnippet("```\n\n```"),
+  mathblock:  () => insertSnippet("$$\n\n$$"),
   highlight:  () => wrapSelection("=="),
+  strikethrough: () => wrapSelection("~~"),
+  underline:  () => wrapSelection("<u>", "</u>"),
   table:      () => openTableModal(),
   diagram:    () => openDiagramModal(),
   flashcard:  () => insertSnippet(":::qa\nQuestion goes here\n:::\nAnswer goes here\n:::"),
@@ -852,22 +880,45 @@ const updateListener = EditorView.updateListener.of(update => {
 });
 
 const customKeymap = keymap.of([
+  // Typora-style shortcuts
+  { key: "Ctrl-0",       run: () => { ACTIONS.paragraph();  return true; } },
+  { key: "Ctrl-1",       run: () => { ACTIONS.h1();         return true; } },
+  { key: "Ctrl-2",       run: () => { ACTIONS.h2();         return true; } },
+  { key: "Ctrl-3",       run: () => { ACTIONS.h3();         return true; } },
+  { key: "Ctrl-4",       run: () => { ACTIONS.h4();         return true; } },
+  { key: "Ctrl-5",       run: () => { ACTIONS.h5();         return true; } },
+  { key: "Ctrl-6",       run: () => { ACTIONS.h6();         return true; } },
+  { key: "Ctrl-Shift-q", run: () => { ACTIONS.blockquote(); return true; } },
+  { key: "Ctrl-Shift-c", run: () => { ACTIONS.codeblock();  return true; } },
+  { key: "Ctrl-Shift-m", run: () => { ACTIONS.mathblock();  return true; } },
+  { key: "Ctrl-Shift-k", run: () => { ACTIONS.codeblock();  return true; } },
+  
+  // Text formatting
   { key: "Ctrl-b",       run: () => { ACTIONS.bold();       return true; } },
   { key: "Ctrl-i",       run: () => { ACTIONS.italic();     return true; } },
+  { key: "Ctrl-u",       run: () => { ACTIONS.underline();  return true; } },
+  { key: "Ctrl-Shift-s", run: () => { ACTIONS.strikethrough(); return true; } },
   { key: "Ctrl-e",       run: () => { ACTIONS.code();       return true; } },
+  { key: "Ctrl-Shift-h", run: () => { ACTIONS.highlight();  return true; } },
+  
+  // Links and images
   { key: "Ctrl-k",       run: () => { ACTIONS.link();       return true; } },
-  { key: "Ctrl-u",       run: () => { ACTIONS.image();      return true; } },
-  { key: "Ctrl-Alt-1",   run: () => { ACTIONS.h1();         return true; } },
-  { key: "Ctrl-Alt-2",   run: () => { ACTIONS.h2();         return true; } },
+  { key: "Ctrl-Shift-i", run: () => { ACTIONS.image();      return true; } },
+  
+  // Lists
   { key: "Ctrl-Shift-8", run: () => { ACTIONS.ul();         return true; } },
   { key: "Ctrl-Shift-7", run: () => { ACTIONS.ol();         return true; } },
   { key: "Ctrl-Shift-x", run: () => { ACTIONS.task();       return true; } },
-  { key: "Ctrl-Shift-.", run: () => { ACTIONS.blockquote(); return true; } },
-  { key: "Ctrl-s",         run: () => { saveFile();             return true; } },
-  { key: "Ctrl-o",         run: () => { document.getElementById("file-input").click(); return true; } },
-  { key: "Ctrl-Alt-v",     run: () => { toggleVim();            return true; } },
-  { key: "Ctrl-t",         run: () => { ACTIONS.table();         return true; } },
-  { key: "Ctrl-Shift-h",   run: () => { ACTIONS.highlight();     return true; } },
+  
+  // Table
+  { key: "Ctrl-t",       run: () => { ACTIONS.table();      return true; } },
+  
+  // File operations
+  { key: "Ctrl-s",       run: () => { saveFile();           return true; } },
+  { key: "Ctrl-o",       run: () => { document.getElementById("file-input").click(); return true; } },
+  
+  // Other
+  { key: "Ctrl-Alt-v",   run: () => { toggleVim();          return true; } },
 ]);
 
 const view = new EditorView({
@@ -1113,23 +1164,38 @@ function renderTree(node, container) {
     li.appendChild(header);
 
     // context menu
-    li.addEventListener("contextmenu", (e) => {
+    header.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       contextMenuTarget = folderPath;
       contextMenuIsFolder = true;
       showContextMenu(e.clientX, e.clientY, 'folder');
     });
 
-    // drag-drop target
-    li.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; li.classList.add("drag-over"); });
-    li.addEventListener("dragleave", () => li.classList.remove("drag-over"));
-    li.addEventListener("drop", async (e) => {
+    // drag-drop target on folder header
+    header.addEventListener("dragover", (e) => { 
+      e.preventDefault(); 
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move"; 
+      header.classList.add("drag-over"); 
+    });
+    
+    header.addEventListener("dragleave", (e) => {
+      if (!header.contains(e.relatedTarget)) {
+        header.classList.remove("drag-over");
+      }
+    });
+    
+    header.addEventListener("drop", async (e) => {
       e.preventDefault();
-      li.classList.remove("drag-over");
+      e.stopPropagation();
+      header.classList.remove("drag-over");
       const src = e.dataTransfer.getData("text/plain");
       if (src) {
-        const dst = `${folderPath}/${src.split('/').pop()}`;
-        if (src !== dst) await moveFile(src, dst);
+        const fileName = src.split('/').pop();
+        const dst = `${folderPath}/${fileName}`;
+        if (src !== dst) {
+          await moveFile(src, dst);
+        }
       }
     });
 
@@ -1957,6 +2023,9 @@ document.getElementById("btn-insert-table").addEventListener("click", () => {
   const rows = Math.max(1, parseInt(document.getElementById("tbl-rows").value) || 3);
   const cols = Math.max(1, parseInt(document.getElementById("tbl-cols").value) || 3);
   
+  // Prompt for table title
+  const title = prompt("Table title (optional):", "");
+  
   // Create fixed-width columns with proper padding (15 chars per column)
   const colWidth = 15;
   const pad = (text) => text.padEnd(colWidth, ' ');
@@ -1965,7 +2034,12 @@ document.getElementById("btn-insert-table").addEventListener("click", () => {
   const sep    = "| " + Array(cols).fill("-".repeat(colWidth)).join(" | ") + " |";
   const row    = "| " + Array(cols).fill(pad("Cell")).join(" | ") + " |";
   const dataRows = Array(rows - 1).fill(row);
-  const table = [header, sep, ...dataRows].join("\n");
+  
+  let table = "";
+  if (title && title.trim()) {
+    table = `**${title.trim()}**\n\n`;
+  }
+  table += [header, sep, ...dataRows].join("\n");
   
   insertSnippet(table);
   document.getElementById("table-overlay").classList.add("hidden");
@@ -2042,7 +2116,17 @@ function openDiagramModal() {
 document.getElementById("diagram-overlay").querySelectorAll(".diagram-type").forEach(btn => {
   btn.addEventListener("click", () => {
     const type = btn.dataset.type;
-    insertSnippet(DIAGRAM_SNIPPETS[type] || "");
+    const diagramName = btn.textContent.trim();
+    
+    // Prompt for diagram title
+    const title = prompt(`${diagramName} title (optional):`, "");
+    
+    let snippet = DIAGRAM_SNIPPETS[type] || "";
+    if (title && title.trim()) {
+      snippet = `**${title.trim()}**\n\n${snippet}`;
+    }
+    
+    insertSnippet(snippet);
     document.getElementById("diagram-overlay").classList.add("hidden");
   });
 });
@@ -2467,5 +2551,75 @@ function showFileListSkeleton() {
   }
 }
 
+// ── Auto-save and Auto-publish ─────────────────────────────────────────────────
+let autoSaveTimer = null;
+let autoPublishTimer = null;
+
+// Auto-save every 1 minute
+function startAutoSave() {
+  if (autoSaveTimer) clearInterval(autoSaveTimer);
+  autoSaveTimer = setInterval(() => {
+    if (isDirty && currentFile !== "untitled.md") {
+      saveFile(true); // silent save
+      console.log("Auto-saved:", currentFile);
+    }
+  }, 60000); // 1 minute
+}
+
+// Auto-publish every 10 minutes (if online and connected to cloud)
+async function autoPublish() {
+  if (!navigator.onLine) return;
+  
+  try {
+    const res = await fetch("/publish", { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      console.log("Auto-published:", data.published, "notes");
+    }
+  } catch (e) {
+    console.log("Auto-publish skipped:", e.message);
+  }
+}
+
+function startAutoPublish() {
+  if (autoPublishTimer) clearInterval(autoPublishTimer);
+  autoPublishTimer = setInterval(() => {
+    autoPublish();
+  }, 600000); // 10 minutes
+}
+
+// Start auto-save and auto-publish
+startAutoSave();
+startAutoPublish();
+
 // ── init ───────────────────────────────────────────────────────────────────────
 loadFileList();
+
+// ── Electron quit button ──────────────────────────────────────────────────────
+// Detect if running in Electron
+const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+
+if (isElectron) {
+  // Show quit button
+  const quitBtn = document.getElementById('btn-quit');
+  if (quitBtn) {
+    quitBtn.style.display = 'inline-block';
+    quitBtn.addEventListener('click', () => {
+      if (isDirty && !confirm('You have unsaved changes. Quit anyway?')) {
+        return;
+      }
+      window.close();
+    });
+  }
+  
+  // Add Ctrl+Q shortcut
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'q') {
+      e.preventDefault();
+      if (isDirty && !confirm('You have unsaved changes. Quit anyway?')) {
+        return;
+      }
+      window.close();
+    }
+  });
+}
