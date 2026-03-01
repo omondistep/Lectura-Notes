@@ -539,7 +539,7 @@ async def publish(name: str, body: PublishBody):
                 content_bytes = note_path.read_bytes()
                 dbx.files_upload(
                     content_bytes,
-                    f"/student-companion/{name}",
+                    f"/Lectura/{name}",
                     mode=dbx_sdk.files.WriteMode("overwrite"),
                 )
                 results["dropbox"] = "synced"
@@ -584,7 +584,7 @@ async def dropbox_list():
         raise HTTPException(400, "Dropbox not configured")
     try:
         dbx = dbx_sdk.Dropbox(cfg["token"])
-        result = dbx.files_list_folder("/student-companion")
+        result = dbx.files_list_folder("/Lectura")
         files = [e.name for e in result.entries if isinstance(e, dbx_sdk.files.FileMetadata) and e.name.endswith(".md")]
         return {"files": files}
     except Exception as e:
@@ -600,7 +600,7 @@ async def dropbox_open(name: str):
         raise HTTPException(400, "Dropbox not configured")
     try:
         dbx = dbx_sdk.Dropbox(cfg["token"])
-        _, response = dbx.files_download(f"/student-companion/{name}")
+        _, response = dbx.files_download(f"/Lectura/{name}")
         return {"name": name, "content": response.content.decode("utf-8", errors="replace")}
     except Exception as e:
         raise HTTPException(500, str(e))
