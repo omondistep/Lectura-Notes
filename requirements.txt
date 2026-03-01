@@ -1,0 +1,9 @@
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+gitpython>=3.1.40
+dropbox>=11.36.0
+google-api-python-client>=2.100.0
+google-auth-httplib2>=0.1.1
+google-auth-oauthlib>=1.1.0
+pydantic>=2.0.0

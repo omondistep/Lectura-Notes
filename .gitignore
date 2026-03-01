@@ -1,0 +1,46 @@
+# Ignore API keys and secrets
+*.key
+*.pem
+*.crt
+*.env
+.env.*
+secrets.txt
+config.json
+github_secrets.json
+dropbox_secrets.json
+gdrive_secrets.json
+.github_token.json
+.dropbox_token.json
+.gdrive_token.json
+.github_state.json
+.dropbox_state.json
+.git_cache/
+
+# Ignore local config and credentials
+*.conf
+*.ini
+*.yaml
+*.yml
+*.toml
+
+# Ignore editor/IDE settings
+.vscode/
+.idea/
+*.swp
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore build and dependency directories
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.bak
+
