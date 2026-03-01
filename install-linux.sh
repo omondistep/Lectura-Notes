@@ -44,12 +44,15 @@ cd "$INSTALL_DIR"
 
 # Try pip3 first, then pip
 if command -v pip3 &> /dev/null; then
+    pip3 install --user --break-system-packages -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib 2>/dev/null || \
     pip3 install --user -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib
 elif command -v pip &> /dev/null; then
+    pip install --user --break-system-packages -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib 2>/dev/null || \
     pip install --user -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib
 else
     echo "Warning: pip not found. Installing with python -m pip..."
     python3 -m ensurepip --user 2>/dev/null || true
+    python3 -m pip install --user --break-system-packages -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib 2>/dev/null || \
     python3 -m pip install --user -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib
 fi
 
