@@ -30,7 +30,13 @@ mkdir -p "$DESKTOP_DIR"
 
 # Copy files
 echo "Copying files..."
-cp -r . "$INSTALL_DIR/"
+shopt -s extglob dotglob
+cp -r !(.|..|.git) "$INSTALL_DIR/" 2>/dev/null || {
+    # Fallback: copy everything except .git
+    for item in *; do
+        cp -r "$item" "$INSTALL_DIR/"
+    done
+}
 
 # Install Python dependencies
 echo "Installing dependencies..."
