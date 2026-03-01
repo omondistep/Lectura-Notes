@@ -2457,16 +2457,12 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     toggleFocusMode();
   }
-  // Also allow Escape to exit focus mode
-  if (e.key === "Escape" && focusModeActive) {
-    toggleFocusMode();
-  }
 });
 
-// Don't restore focus mode on startup - let user activate it manually
-// if (localStorage.getItem("sc-focus-mode") === "true") {
-//   toggleFocusMode();
-// }
+// Restore focus mode if it was active
+if (localStorage.getItem("sc-focus-mode") === "true") {
+  toggleFocusMode();
+}
 
 // ── 20. Undo/Redo Stack Persistence ───────────────────────────────────────────
 const HISTORY_KEY = "sc-editor-history";
