@@ -1260,17 +1260,30 @@ function makeFileItem(path, displayName, onOpen, onDelete, isFolder = false) {
     
     li.addEventListener("drop", async (e) => {
       e.preventDefault();
+      e.stopPropagation();
       li.classList.remove("drag-over");
       
       const sourcePath = e.dataTransfer.getData("text/plain");
       if (!sourcePath) return;
       
-      const targetFolder = path.replace(/\/$/, '');
+      // Get target folder path (remove trailing slash if present)
+      let targetFolder = path.replace(/\/$/, '');
+      
+      // Get just the filename from source
       const fileName = sourcePath.split('/').pop();
-      const newPath = `${targetFolder}/${fileName}`;
+      
+      // Build new path
+      const newPath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
       
       // Don't move to same location
       if (sourcePath === newPath) return;
+      
+      // Check if file already exists in target
+      const sourceFolder = sourcePath.includes('/') ? sourcePath.substring(0, sourcePath.lastIndexOf('/')) : '';
+      if (sourceFolder === targetFolder) {
+        setStatus("File is already in this folder", true);
+        return;
+      }
       
       // Move the file
       await moveFile(sourcePath, newPath);
