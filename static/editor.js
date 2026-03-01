@@ -2552,7 +2552,6 @@ function showFileListSkeleton() {
 }
 
 // ── Auto-save and Auto-publish ─────────────────────────────────────────────────
-let autoSaveTimer = null;
 let autoPublishTimer = null;
 
 // Auto-save every 1 minute
