@@ -32,9 +32,31 @@ function createMenu() {
           click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-new").click()')
         },
         {
+          label: 'New Window',
+          accelerator: 'CmdOrCtrl+Shift+N',
+          click: () => createWindow()
+        },
+        { type: 'separator' },
+        {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
           click: () => mainWindow.webContents.executeJavaScript('saveFile()')
+        },
+        {
+          label: 'Save As…',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => mainWindow.webContents.executeJavaScript('saveAs()')
+        },
+        { type: 'separator' },
+        {
+          label: 'Close',
+          accelerator: 'CmdOrCtrl+W',
+          click: () => mainWindow.webContents.executeJavaScript('setContent(""); currentFile = "untitled.md"; document.getElementById("filename-input").value = "untitled.md";')
+        },
+        {
+          label: 'Preferences',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-settings").click()')
         },
         { type: 'separator' },
         {
@@ -53,7 +75,18 @@ function createMenu() {
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
-        { role: 'selectAll' }
+        { role: 'selectAll' },
+        { type: 'separator' },
+        {
+          label: 'Find',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => mainWindow.webContents.executeJavaScript('document.querySelector(".cm-editor").cmView.view.dispatch({effects: []});document.execCommand("find")')
+        },
+        {
+          label: 'Replace',
+          accelerator: 'CmdOrCtrl+H',
+          click: () => mainWindow.webContents.executeJavaScript('document.execCommand("replace")')
+        }
       ]
     },
     {
@@ -65,9 +98,30 @@ function createMenu() {
           click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-sidebar").click()')
         },
         {
+          label: 'Toggle Preview',
+          accelerator: 'CmdOrCtrl+/',
+          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-toggle-preview").click()')
+        },
+        {
           label: 'Focus Mode',
-          accelerator: 'F11',
+          accelerator: 'F8',
           click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-focus").click()')
+        },
+        { type: 'separator' },
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+Shift+=',
+          role: 'zoomIn'
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+Shift+-',
+          role: 'zoomOut'
+        },
+        {
+          label: 'Actual Size',
+          accelerator: 'CmdOrCtrl+Shift+0',
+          role: 'resetZoom'
         },
         { type: 'separator' },
         { role: 'reload' },

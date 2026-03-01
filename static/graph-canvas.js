@@ -20,7 +20,11 @@ export class GraphCanvas {
     this.showGrid = true;
     this.snapToGrid = true;
     this.gridSize = 30;
-    this.pad = { left: 50, bottom: 40, top: 20, right: 20 };
+    this.pad = { left: 50, bottom: 45, top: 25, right: 20 };
+
+    this.title = "";
+    this.xLabel = "";
+    this.yLabel = "";
 
     // interaction state
     this._drawing = false;
@@ -55,6 +59,27 @@ export class GraphCanvas {
     ag.appendChild(this._svgEl("line", { x1: left, y1: top, x2: left, y2: this.h - bottom, stroke: "#888", "stroke-width": 1.5 }));
     ag.appendChild(this._svgEl("polygon", { points: `${this.w - right},${this.h - bottom} ${this.w - right - 8},${this.h - bottom - 4} ${this.w - right - 8},${this.h - bottom + 4}`, fill: "#888" }));
     ag.appendChild(this._svgEl("polygon", { points: `${left},${top} ${left - 4},${top + 8} ${left + 4},${top + 8}`, fill: "#888" }));
+
+    // Title
+    if (this.title) {
+      const t = this._svgEl("text", { x: (left + this.w - right) / 2, y: top - 4, fill: "#ccc", "font-size": "15", "text-anchor": "middle", "font-family": "sans-serif", "font-weight": "bold" });
+      t.textContent = this.title;
+      ag.appendChild(t);
+    }
+    // X-axis label
+    if (this.xLabel) {
+      const t = this._svgEl("text", { x: (left + this.w - right) / 2, y: this.h - bottom + 30, fill: "#aaa", "font-size": "12", "text-anchor": "middle", "font-family": "sans-serif" });
+      t.textContent = this.xLabel;
+      ag.appendChild(t);
+    }
+    // Y-axis label
+    if (this.yLabel) {
+      const cx = left - 30, cy = (top + this.h - bottom) / 2;
+      const t = this._svgEl("text", { x: cx, y: cy, fill: "#aaa", "font-size": "12", "text-anchor": "middle", "font-family": "sans-serif", transform: `rotate(-90, ${cx}, ${cy})` });
+      t.textContent = this.yLabel;
+      ag.appendChild(t);
+    }
+
     this.svg.prepend(ag);
   }
 
@@ -558,13 +583,16 @@ export class GraphCanvas {
 
   // ── Serialize ────────────────────────────────────────────────────────────────
   toJSON() {
-    return { w: this.w, h: this.h, elements: this.elements, showGrid: this.showGrid, nextId: this.nextId };
+    return { w: this.w, h: this.h, elements: this.elements, showGrid: this.showGrid, nextId: this.nextId, title: this.title, xLabel: this.xLabel, yLabel: this.yLabel };
   }
 
   fromJSON(data) {
     this.elements = data.elements || [];
     this.showGrid = data.showGrid !== undefined ? data.showGrid : true;
     this.nextId = data.nextId || (this.elements.length ? Math.max(...this.elements.map(e => e.id)) + 1 : 1);
+    this.title = data.title || "";
+    this.xLabel = data.xLabel || "";
+    this.yLabel = data.yLabel || "";
     this._selected = null;
     this.render();
   }

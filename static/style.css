@@ -48,25 +48,25 @@
   --text:       #e2e8f0;
   --text-dim:   #94a3b8;
   --text-muted: #475569;
-  --accent:     #f59e0b;
+  --accent:     #fbbf24;
   --accent-2:   #38bdf8;
 }
 
 /* ── phantom (Pure Dark) ──────────────────────────────────────────────────── */
 [data-theme="phantom"] {
-  --bg-app:     #0a0a0a;
-  --bg-editor:  #0d0d0d;
-  --bg-preview: #101010;
-  --bg-surface: #141414;
-  --bg-hover:   #1c1c1c;
-  --bg-input:   #0c0c0c;
-  --border:     #2a2a2a;
-  --border-dim: #1a1a1a;
-  --text:       #e0e0e0;
-  --text-dim:   #888888;
-  --text-muted: #555555;
-  --accent:     #22c55e;
-  --accent-2:   #3b82f6;
+  --bg-app:     #000000;
+  --bg-editor:  #000000;
+  --bg-preview: #050505;
+  --bg-surface: #0a0a0a;
+  --bg-hover:   #141414;
+  --bg-input:   #050505;
+  --border:     #1a1a1a;
+  --border-dim: #111111;
+  --text:       #e8e8e8;
+  --text-dim:   #777777;
+  --text-muted: #444444;
+  --accent:     #00ff88;
+  --accent-2:   #00cc6a;
 }
 
 /* ── seraph (Clean Light) ─────────────────────────────────────────────────── */
@@ -94,19 +94,19 @@
 
 /* ── forest (Nature Green) ────────────────────────────────────────────────── */
 [data-theme="forest"] {
-  --bg-app:     #0e1e0e;
-  --bg-editor:  #0c1a0c;
-  --bg-preview: #101f10;
-  --bg-surface: #162816;
-  --bg-hover:   #1e3a1e;
-  --bg-input:   #0a160a;
-  --border:     #2d4d2d;
-  --border-dim: #1e3a1e;
-  --text:       #d4e8d4;
-  --text-dim:   #8ab88a;
-  --text-muted: #5a905a;
-  --accent:     #4ade80;
-  --accent-2:   #34d399;
+  --bg-app:     #1a1810;
+  --bg-editor:  #1c1a12;
+  --bg-preview: #1e1c14;
+  --bg-surface: #28251a;
+  --bg-hover:   #332f22;
+  --bg-input:   #161410;
+  --border:     #4a4430;
+  --border-dim: #3a3520;
+  --text:       #e0dcc8;
+  --text-dim:   #a09878;
+  --text-muted: #6a6348;
+  --accent:     #d4a855;
+  --accent-2:   #8ba860;
 }
 
 /* ── newsprint (Vintage Paper) ────────────────────────────────────────────── */
@@ -161,10 +161,10 @@
   --border:     #3d3555;
   --border-dim: #2e2840;
   --text:       #e8e4f3;
-  --text-dim:   #b4a8d4;
-  --text-muted: #7a6ba0;
-  --accent:     #a78bfa;
-  --accent-2:   #c084fc;
+  --text-dim:   #c4b8e4;
+  --text-muted: #8a7bb8;
+  --accent:     #b89dff;
+  --accent-2:   #d49cff;
 }
 
 /* ── sunset (Warm Orange) ─────────────────────────────────────────────────── */
@@ -182,7 +182,6 @@
   --text-muted: #a08070;
   --accent:     #fb923c;
   --accent-2:   #f59e0b;
-}
 }
 
 /* ── seniva ───────────────────────────────────────────────────────────────── */
@@ -2056,6 +2055,13 @@ a:focus-visible {
   display: flex; gap: 16px; padding: 6px 12px; font-size: 11px; color: var(--text-muted);
   border-top: 1px solid var(--border-dim); flex-wrap: wrap;
 }
+
+.gc-label-input {
+  background: var(--bg-input); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 6px; font-size: 12px; width: 100px;
+}
+.gc-label-input.gc-label-sm { width: 80px; }
+.gc-label-input::placeholder { color: var(--text-muted); }
 
 /* Graph blocks in preview */
 .graph-block-wrapper {

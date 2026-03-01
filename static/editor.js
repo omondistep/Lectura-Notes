@@ -613,8 +613,8 @@ function insertSnippet(text) {
 }
 
 function insertBlock(text) {
-  const { from } = view.state.doc.lineAt(from);
-  const line = view.state.doc.lineAt(from);
+  const cursor = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(cursor);
   const insert = line.text.trim() === "" ? text + "\n" : "\n" + text + "\n";
   view.dispatch({ changes: { from: line.to, insert } });
   view.focus();
@@ -635,6 +635,90 @@ function removeLineStart(pattern) {
   }
   if (changes.length > 0) {
     view.dispatch({ changes });
+  }
+  view.focus();
+}
+
+function saveAs() {
+  const name = prompt("Save as:", currentFile);
+  if (!name) return;
+  currentFile = name.endsWith(".md") ? name : name + ".md";
+  document.getElementById("filename-input").value = currentFile.split('/').pop();
+  saveFile();
+}
+
+function clearFormat() {
+  const { from, to } = view.state.selection.main;
+  if (from === to) return;
+  let text = view.state.sliceDoc(from, to);
+  text = text.replace(/\*\*(.+?)\*\*/g, "$1");
+  text = text.replace(/\*(.+?)\*/g, "$1");
+  text = text.replace(/~~(.+?)~~/g, "$1");
+  text = text.replace(/==(.+?)==/g, "$1");
+  text = text.replace(/`(.+?)`/g, "$1");
+  text = text.replace(/<u>(.+?)<\/u>/g, "$1");
+  text = text.replace(/^#{1,6}\s+/gm, "");
+  view.dispatch({ changes: { from, to, insert: text } });
+  view.focus();
+}
+
+function increaseHeading() {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const match = line.text.match(/^(#{1,6})\s/);
+  if (match) {
+    if (match[1].length < 6) {
+      view.dispatch({ changes: { from: line.from, to: line.from + match[1].length, insert: match[1] + "#" } });
+    }
+  } else {
+    view.dispatch({ changes: { from: line.from, insert: "# " } });
+  }
+  view.focus();
+}
+
+function decreaseHeading() {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const match = line.text.match(/^(#{1,6})\s/);
+  if (match) {
+    if (match[1].length === 1) {
+      view.dispatch({ changes: { from: line.from, to: line.from + 2, insert: "" } });
+    } else {
+      view.dispatch({ changes: { from: line.from, to: line.from + match[1].length, insert: match[1].slice(1) } });
+    }
+  }
+  view.focus();
+}
+
+function selectLine() {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  view.dispatch({ selection: { anchor: line.from, head: line.to } });
+  view.focus();
+}
+
+function selectWord() {
+  const pos = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(pos);
+  const offset = pos - line.from;
+  const text = line.text;
+  let start = offset, end = offset;
+  while (start > 0 && /\w/.test(text[start - 1])) start--;
+  while (end < text.length && /\w/.test(text[end])) end++;
+  view.dispatch({ selection: { anchor: line.from + start, head: line.from + end } });
+  view.focus();
+}
+
+function deleteWord() {
+  const pos = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(pos);
+  const offset = pos - line.from;
+  const text = line.text;
+  let start = offset, end = offset;
+  while (start > 0 && /\w/.test(text[start - 1])) start--;
+  while (end < text.length && /\w/.test(text[end])) end++;
+  if (start !== end) {
+    view.dispatch({ changes: { from: line.from + start, to: line.from + end, insert: "" } });
   }
   view.focus();
 }
@@ -919,6 +1003,26 @@ const customKeymap = keymap.of([
   
   // Other
   { key: "Ctrl-Alt-v",   run: () => { toggleVim();          return true; } },
+
+  // Typora-style extra shortcuts
+  { key: "Ctrl-n",       run: () => { document.getElementById("btn-new").click(); return true; } },
+  { key: "Ctrl-p",       run: () => { document.getElementById("search-input").focus(); return true; } },
+  { key: "Ctrl-Shift-s", run: () => { saveAs();             return true; } },
+  { key: "Ctrl-w",       run: () => { setContent(""); currentFile = "untitled.md"; document.getElementById("filename-input").value = "untitled.md"; return true; } },
+  { key: "Ctrl-Shift-`", run: () => { wrapSelection("`");   return true; } },
+  { key: "Alt-Shift-5",  run: () => { wrapSelection("~~");  return true; } },
+  { key: "Ctrl-\\",      run: () => { clearFormat();        return true; } },
+  { key: "Ctrl-Shift-l", run: () => { document.getElementById("btn-sidebar").click(); return true; } },
+  { key: "Ctrl-/",       run: () => { document.getElementById("btn-toggle-preview").click(); return true; } },
+  { key: "F8",           run: () => { document.getElementById("btn-focus").click(); return true; } },
+  { key: "Ctrl-=",       run: () => { increaseHeading();    return true; } },
+  { key: "Ctrl--",       run: () => { decreaseHeading();    return true; } },
+  { key: "Ctrl-Shift-[", run: () => { ACTIONS.ol();         return true; } },
+  { key: "Ctrl-Shift-]", run: () => { ACTIONS.ul();         return true; } },
+  { key: "Ctrl-l",       run: () => { selectLine();         return true; } },
+  { key: "Ctrl-d",       run: () => { selectWord();         return true; } },
+  { key: "Ctrl-Shift-d", run: () => { deleteWord();         return true; } },
+  { key: "Ctrl-,",       run: () => { document.getElementById("btn-settings").click(); return true; } },
 ]);
 
 const view = new EditorView({
@@ -2158,6 +2262,11 @@ function openGraphCanvas(existingData = null, editOffset = null, editLength = nu
     graphCanvasInstance.fromJSON(existingData);
   }
 
+  // Set label inputs from existing data or clear
+  document.getElementById("gc-title").value = graphCanvasInstance.title || "";
+  document.getElementById("gc-x-label").value = graphCanvasInstance.xLabel || "";
+  document.getElementById("gc-y-label").value = graphCanvasInstance.yLabel || "";
+
   // Set initial tool button state
   document.querySelectorAll("#graph-toolbar .gc-tool").forEach(b => {
     b.classList.toggle("active", b.dataset.tool === graphCanvasInstance.tool);
@@ -2194,6 +2303,17 @@ document.getElementById("gc-color").addEventListener("input", e => {
 });
 document.getElementById("gc-width").addEventListener("change", e => {
   if (graphCanvasInstance) graphCanvasInstance.strokeWidth = parseFloat(e.target.value);
+});
+
+// Label inputs
+document.getElementById("gc-title").addEventListener("input", e => {
+  if (graphCanvasInstance) { graphCanvasInstance.title = e.target.value; graphCanvasInstance.render(); }
+});
+document.getElementById("gc-x-label").addEventListener("input", e => {
+  if (graphCanvasInstance) { graphCanvasInstance.xLabel = e.target.value; graphCanvasInstance.render(); }
+});
+document.getElementById("gc-y-label").addEventListener("input", e => {
+  if (graphCanvasInstance) { graphCanvasInstance.yLabel = e.target.value; graphCanvasInstance.render(); }
 });
 
 // Undo / Redo / Delete / Clear
@@ -2299,7 +2419,7 @@ async function openCloudBrowser(provider) {
   }
   files.forEach(name => {
     const openUrl = provider === "dropbox" ? `/dropbox/open/${encodeURIComponent(name)}` : `/gdrive/open/${encodeURIComponent(name)}`;
-    list.appendChild(makeFileItem(name, async () => {
+    list.appendChild(makeFileItem(name, name, async () => {
       setStatus(`Opening ${name} from ${label.textContent}…`);
       const r = await fetch(openUrl);
       if (!r.ok) { setStatus("Failed to open", true); return; }
@@ -2553,11 +2673,12 @@ function showFileListSkeleton() {
 
 // ── Auto-save and Auto-publish ─────────────────────────────────────────────────
 let autoPublishTimer = null;
+let autoSaveIntervalId = null;
 
 // Auto-save every 1 minute
 function startAutoSave() {
-  if (autoSaveTimer) clearInterval(autoSaveTimer);
-  autoSaveTimer = setInterval(() => {
+  if (autoSaveIntervalId) clearInterval(autoSaveIntervalId);
+  autoSaveIntervalId = setInterval(() => {
     if (isDirty && currentFile !== "untitled.md") {
       saveFile(true); // silent save
       console.log("Auto-saved:", currentFile);
