@@ -11,7 +11,8 @@ echo ""
 # Check Python
 if ! command -v python3 &> /dev/null; then
     echo "Error: Python 3 is required but not installed."
-    echo "Install with: sudo apt install python3 python3-pip"
+    echo "Install with: sudo apt install python3 python3-pip (Debian/Ubuntu)"
+    echo "           or: sudo pacman -S python python-pip (Arch)"
     exit 1
 fi
 
@@ -34,7 +35,17 @@ cp -r . "$INSTALL_DIR/"
 # Install Python dependencies
 echo "Installing dependencies..."
 cd "$INSTALL_DIR"
-python3 -m pip install --user -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+# Try pip3 first, then pip
+if command -v pip3 &> /dev/null; then
+    pip3 install --user -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib
+elif command -v pip &> /dev/null; then
+    pip install --user -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib
+else
+    echo "Warning: pip not found. Installing with python -m pip..."
+    python3 -m ensurepip --user 2>/dev/null || true
+    python3 -m pip install --user -q fastapi uvicorn python-multipart gitpython dropbox google-api-python-client google-auth-httplib2 google-auth-oauthlib
+fi
 
 # Create launcher script
 cat > "$BIN_DIR/lectura" << 'EOF'
