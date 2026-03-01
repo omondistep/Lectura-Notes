@@ -931,3 +931,8 @@ async def post_config(body: ConfigBody):
     body.config.setdefault("gdrive", {}).pop("connected", None)
     save_config(body.config)
     return {"saved": True}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
