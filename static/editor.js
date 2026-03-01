@@ -1943,11 +1943,17 @@ document.getElementById("btn-cancel-table").addEventListener("click", () => {
 document.getElementById("btn-insert-table").addEventListener("click", () => {
   const rows = Math.max(1, parseInt(document.getElementById("tbl-rows").value) || 3);
   const cols = Math.max(1, parseInt(document.getElementById("tbl-cols").value) || 3);
-  const header = "| " + Array(cols).fill("Header").map((h,i) => `${h} ${i+1}`).join(" | ") + " |";
-  const sep    = "| " + Array(cols).fill("---").join(" | ") + " |";
-  const row    = "| " + Array(cols).fill("Cell").join(" | ") + " |";
+  
+  // Create fixed-width columns with proper padding (15 chars per column)
+  const colWidth = 15;
+  const pad = (text) => text.padEnd(colWidth, ' ');
+  
+  const header = "| " + Array(cols).fill("Header").map((h,i) => pad(`${h} ${i+1}`)).join(" | ") + " |";
+  const sep    = "| " + Array(cols).fill("-".repeat(colWidth)).join(" | ") + " |";
+  const row    = "| " + Array(cols).fill(pad("Cell")).join(" | ") + " |";
   const dataRows = Array(rows - 1).fill(row);
   const table = [header, sep, ...dataRows].join("\n");
+  
   insertSnippet(table);
   document.getElementById("table-overlay").classList.add("hidden");
 });
