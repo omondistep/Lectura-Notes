@@ -73,7 +73,7 @@ cat > "$DESKTOP_DIR/lectura.desktop" << EOF
 Name=Lectura
 Comment=Markdown Note-Taking App
 Exec=$BIN_DIR/lectura
-Icon=accessories-text-editor
+Icon=$INSTALL_DIR/build/icon.png
 Terminal=false
 Type=Application
 Categories=Office;TextEditor;

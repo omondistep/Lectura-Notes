@@ -981,7 +981,7 @@ const customKeymap = keymap.of([
   { key: "Ctrl-b",       run: () => { ACTIONS.bold();       return true; } },
   { key: "Ctrl-i",       run: () => { ACTIONS.italic();     return true; } },
   { key: "Ctrl-u",       run: () => { ACTIONS.underline();  return true; } },
-  { key: "Ctrl-Shift-s", run: () => { ACTIONS.strikethrough(); return true; } },
+  // Strikethrough moved to Alt-Shift-5 (Typora style)
   { key: "Ctrl-e",       run: () => { ACTIONS.code();       return true; } },
   { key: "Ctrl-Shift-h", run: () => { ACTIONS.highlight();  return true; } },
   

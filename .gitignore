@@ -35,7 +35,6 @@ Thumbs.db
 # Ignore build and dependency directories
 node_modules/
 dist/
-build/
 __pycache__/
 *.pyc
 
