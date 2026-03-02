@@ -20,9 +20,10 @@
       "!*.log"
     ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": ["AppImage"],
       "category": "Office",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "maintainer": "Ondiek <ondiek@lectura.app>"
     },
     "win": {
       "target": "nsis",
@@ -31,13 +32,17 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToDesktop": true,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Lectura"
     }
   },
-  "author": "",
+  "homepage": "https://github.com/ondiekOS/lectura",
+  "author": {
+    "name": "Ondiek",
+    "email": "ondiek@lectura.app"
+  },
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",

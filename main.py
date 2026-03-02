@@ -71,9 +71,27 @@ except ImportError:
 
 # ── app setup ──────────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent
-NOTES = BASE / "notes"
-NOTES.mkdir(exist_ok=True)
 CONFIG_PATH = BASE / "config.json"
+
+# Workspace directory — defaults to ./notes, can be changed at runtime
+def _init_notes_dir() -> Path:
+    """Load last workspace from config, or default to BASE/notes."""
+    cfg_path = BASE / "config.json"
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text())
+            workspace = cfg.get("workspace")
+            if workspace:
+                p = Path(workspace)
+                if p.is_dir():
+                    return p
+        except Exception:
+            pass
+    default = BASE / "notes"
+    default.mkdir(exist_ok=True)
+    return default
+
+NOTES = _init_notes_dir()
 
 # GitHub OAuth
 GITHUB_SECRETS_PATH = BASE / "github_secrets.json"
@@ -211,11 +229,60 @@ class SearchResponse(BaseModel):
     results: List[SearchResult]
 
 
+def validate_path(name: str) -> Path:
+    """Resolve a user-supplied path and ensure it stays within NOTES directory."""
+    resolved = (NOTES / name).resolve()
+    if not str(resolved).startswith(str(NOTES.resolve())):
+        raise HTTPException(403, "Path traversal not allowed")
+    return resolved
+
+
 # ── routes ─────────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return FileResponse(BASE / "static" / "index.html")
+
+
+# ── workspace management ───────────────────────────────────────────────────────
+
+class WorkspaceBody(BaseModel):
+    path: str
+
+@app.get("/workspace")
+async def get_workspace():
+    return {"path": str(NOTES.resolve()), "name": NOTES.resolve().name}
+
+@app.post("/workspace")
+async def set_workspace(body: WorkspaceBody):
+    global NOTES
+    folder = Path(body.path).expanduser().resolve()
+    if not folder.exists():
+        raise HTTPException(400, f"Folder does not exist: {body.path}")
+    if not folder.is_dir():
+        raise HTTPException(400, f"Not a directory: {body.path}")
+    NOTES = folder
+    # Persist in config
+    cfg = load_config()
+    cfg["workspace"] = str(folder)
+    save_config(cfg)
+    logger.info(f"Workspace changed to: {folder}")
+    return {"path": str(folder), "name": folder.name}
+
+@app.post("/workspace/browse")
+async def browse_directory(body: WorkspaceBody = None):
+    """List subdirectories of a given path for folder browsing."""
+    target = Path(body.path).expanduser().resolve() if body and body.path else Path.home()
+    if not target.exists() or not target.is_dir():
+        target = Path.home()
+    dirs = []
+    try:
+        for item in sorted(target.iterdir()):
+            if item.is_dir() and not item.name.startswith("."):
+                dirs.append({"name": item.name, "path": str(item)})
+    except PermissionError:
+        pass
+    return {"current": str(target), "parent": str(target.parent), "dirs": dirs}
 
 
 # ── file management ────────────────────────────────────────────────────────────
@@ -267,7 +334,7 @@ async def list_files(folder: str = "", recursive: bool = True):
 @app.get("/files/{name:path}")
 async def read_file(name: str):
     """Read a file by its path (can include folder path)."""
-    path = NOTES / name
+    path = validate_path(name)
     if not path.exists():
         raise HTTPException(404, "File not found")
     if path.is_dir():
@@ -278,6 +345,7 @@ async def read_file(name: str):
 @app.post("/files/{name:path}")
 async def save_file(name: str, body: NoteBody):
     """Save a file by its path (can include folder path)."""
+    validate_path(name)
     path = NOTES / name
     
     # Handle folder creation - paths ending with /.folder or just folder path
@@ -300,7 +368,7 @@ async def save_file(name: str, body: NoteBody):
 @app.delete("/files/{name:path}")
 async def delete_file(name: str):
     """Delete a file or folder by its path."""
-    path = NOTES / name
+    path = validate_path(name)
     if not path.exists():
         raise HTTPException(404, "File or folder not found")
     
@@ -747,6 +815,9 @@ async def dropbox_auth():
 async def dropbox_callback(code: str, state: str):
     if not HAS_DROPBOX:
         raise HTTPException(501, "dropbox SDK not installed")
+    state_file = BASE / ".dropbox_state.json"
+    if not state_file.exists() or json.loads(state_file.read_text())["state"] != state:
+        return HTMLResponse("<h1>Invalid state</h1>", 400)
     secrets = json.loads(DROPBOX_SECRETS_PATH.read_text())
     
     # Exchange code for token
@@ -768,7 +839,7 @@ async def dropbox_status():
 # ── Publish to Cloud ───────────────────────────────────────────────────────────
 
 @app.post("/publish")
-async def publish():
+async def publish_all():
     """Publish all notes to connected cloud service."""
     # Check which service is connected
     github_connected = GITHUB_TOKEN_PATH.exists()
@@ -834,7 +905,7 @@ async def publish():
                 # Create Lectura folder if needed
                 try:
                     dbx.files_get_metadata("/Lectura")
-                except:
+                except Exception:
                     dbx.files_create_folder_v2("/Lectura")
                 
                 # Upload files preserving folder structure
@@ -847,7 +918,7 @@ async def publish():
                             folder_path = f"/Lectura/{'/'.join(parts[:i])}"
                             try:
                                 dbx.files_create_folder_v2(folder_path)
-                            except:
+                            except Exception:
                                 pass
                     dbx.files_upload(content, dropbox_path, mode=dbx_sdk.files.WriteMode.overwrite)
                 results["dropbox"] = f"✅ Uploaded {len(files)} files to /Lectura/"

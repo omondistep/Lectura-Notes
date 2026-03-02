@@ -280,6 +280,49 @@ class TestSecurity:
         assert response.status_code in [403, 404]
 
 
+    def test_path_traversal_deep(self, client):
+        """Test deeper path traversal attempts."""
+        response = client.get("/files/foo/../../config.json")
+        assert response.status_code in [403, 404, 400]
+
+    def test_path_traversal_save(self, client):
+        """Test path traversal on save endpoint."""
+        response = client.post(
+            "/files/../evil.md",
+            json={"content": "evil"}
+        )
+        assert response.status_code in [403, 404, 400]
+
+
+class TestPublishAll:
+    """Tests for the publish-all endpoint."""
+
+    def test_publish_all_no_cloud(self, client):
+        """Test publish all with no cloud service connected."""
+        response = client.post("/publish")
+        assert response.status_code == 400
+
+
+class TestFolderOperations:
+    """Tests for folder rename and delete."""
+
+    def test_rename_folder(self, client):
+        """Test renaming a folder."""
+        client.post("/folders/old-name")
+        response = client.put("/folders/old-name?new_name=new-name")
+        assert response.status_code == 200
+        assert response.json()["to"] == "new-name"
+
+    def test_delete_folder(self, client):
+        """Test deleting a folder."""
+        client.post("/folders/to-delete")
+        # Add a file inside
+        client.post("/files/to-delete/note.md", json={"content": "hi"})
+        response = client.delete("/files/to-delete")
+        assert response.status_code == 200
+        assert response.json()["type"] == "folder"
+
+
 class TestErrorHandling:
     """Tests for error handling."""
     

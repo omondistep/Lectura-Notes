@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
@@ -30,6 +30,21 @@ function createMenu() {
           label: 'New Note',
           accelerator: 'CmdOrCtrl+N',
           click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-new").click()')
+        },
+        {
+          label: 'Open Folder…',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: async () => {
+            const result = await dialog.showOpenDialog(mainWindow, {
+              properties: ['openDirectory']
+            });
+            if (!result.canceled && result.filePaths.length > 0) {
+              const folderPath = result.filePaths[0].replace(/\\/g, '/');
+              mainWindow.webContents.executeJavaScript(
+                `setWorkspace(${JSON.stringify(folderPath)}); void 0`
+              );
+            }
+          }
         },
         {
           label: 'New Window',
@@ -150,7 +165,8 @@ function createWindow() {
     title: 'Lectura',
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
@@ -164,6 +180,16 @@ function createWindow() {
     mainWindow = null;
   });
 }
+
+ipcMain.handle('open-folder-dialog', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0].replace(/\\/g, '/');
+  }
+  return null;
+});
 
 app.on('ready', () => {
   startPython();
