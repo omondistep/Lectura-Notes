@@ -2327,18 +2327,40 @@ document.getElementById("gc-clear").addEventListener("click", () => {
 // Keyboard shortcuts in graph modal
 document.getElementById("graph-overlay").addEventListener("keydown", e => {
   if (!graphCanvasInstance) return;
+  const inInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT";
+
   if (e.key === "Escape") {
-    // If building a curve, cancel it first; otherwise close modal
+    if (inInput) { e.target.blur(); e.preventDefault(); return; }
     if (graphCanvasInstance._curvePoints && graphCanvasInstance._curvePoints.length > 0) {
       graphCanvasInstance.cancelCurve();
     } else {
       closeGraphCanvas();
     }
     e.preventDefault();
+    return;
   }
+
+  // Don't intercept typing in inputs
+  if (inInput) return;
+
+  // Delete/Backspace → delete selected element
   if (e.key === "Delete" || e.key === "Backspace") { graphCanvasInstance.deleteSelected(); e.preventDefault(); }
+
+  // Undo / Redo
   if (e.ctrlKey && e.key === "z") { graphCanvasInstance.undo(); e.preventDefault(); }
   if (e.ctrlKey && e.key === "y") { graphCanvasInstance.redo(); e.preventDefault(); }
+
+  // Arrow keys — nudge selected element (Shift = larger step)
+  const step = e.shiftKey ? graphCanvasInstance.gridSize : (graphCanvasInstance.snapToGrid ? graphCanvasInstance.gridSize : 5);
+  if (e.key === "ArrowLeft")  { graphCanvasInstance.nudge(-step, 0); e.preventDefault(); }
+  if (e.key === "ArrowRight") { graphCanvasInstance.nudge(step, 0);  e.preventDefault(); }
+  if (e.key === "ArrowUp")    { graphCanvasInstance.nudge(0, -step); e.preventDefault(); }
+  if (e.key === "ArrowDown")  { graphCanvasInstance.nudge(0, step);  e.preventDefault(); }
+
+  // Copy / Paste / Duplicate
+  if (e.ctrlKey && e.key === "c") { graphCanvasInstance.copySelected(); e.preventDefault(); }
+  if (e.ctrlKey && e.key === "v") { graphCanvasInstance.paste(); e.preventDefault(); }
+  if (e.ctrlKey && e.key === "d") { graphCanvasInstance.duplicateSelected(); e.preventDefault(); }
 });
 
 // Cancel

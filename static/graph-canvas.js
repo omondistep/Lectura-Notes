@@ -1,4 +1,4 @@
-// ── Graph Canvas — Interactive SVG drawing tool for economics diagrams ────────
+// ── Graph Canvas — Interactive SVG drawing tool with Office Draw-style editing ──
 // No dependencies. Exports a single GraphCanvas class used by editor.js.
 
 export class GraphCanvas {
@@ -33,8 +33,14 @@ export class GraphCanvas {
     this._selected = null;
     this._dragOffset = null;
 
+    // Endpoint handle dragging: { id, endpoint: "start"|"end"|"p1"|"p2"|"p3"|"p4" }
+    this._draggingHandle = null;
+
     // Curve: multi-point path.  Left-click adds points, right-click finishes.
     this._curvePoints = [];
+
+    // Clipboard for copy/paste
+    this._clipboard = null;
 
     this._bindEvents();
     this.render();
@@ -107,7 +113,7 @@ export class GraphCanvas {
     return g;
   }
 
-  // ── Undo / Redo ──────────────────────────────────────────────────────────────
+  // ── Undo / Redo ────────────────────────────────────────────────────────────────
   _pushUndo() {
     this.undoStack.push(JSON.parse(JSON.stringify(this.elements)));
     this.redoStack = [];
@@ -145,8 +151,76 @@ export class GraphCanvas {
     return el;
   }
 
+  // ── Arrow key nudge for selected element ──────────────────────────────────────
+  nudge(dx, dy) {
+    if (this._selected == null) return;
+    const el = this.elements.find(e => e.id === this._selected);
+    if (!el) return;
+    this._pushUndo();
+    if (el.type === "line" || el.type === "arrow" || el.type === "rect") {
+      el.x1 += dx; el.y1 += dy; el.x2 += dx; el.y2 += dy;
+    } else if (el.type === "curve" || el.type === "freehand") {
+      el.points.forEach(p => { p.x += dx; p.y += dy; });
+    } else if (el.type === "text") {
+      el.x += dx; el.y += dy;
+    }
+    this.render();
+  }
+
+  // ── Copy / Paste ──────────────────────────────────────────────────────────────
+  copySelected() {
+    if (this._selected == null) return;
+    const el = this.elements.find(e => e.id === this._selected);
+    if (el) this._clipboard = JSON.parse(JSON.stringify(el));
+  }
+
+  paste() {
+    if (!this._clipboard) return;
+    const el = JSON.parse(JSON.stringify(this._clipboard));
+    // Offset the pasted element slightly
+    const offset = 20;
+    if (el.type === "line" || el.type === "arrow" || el.type === "rect") {
+      el.x1 += offset; el.y1 += offset; el.x2 += offset; el.y2 += offset;
+    } else if (el.type === "curve" || el.type === "freehand") {
+      el.points.forEach(p => { p.x += offset; p.y += offset; });
+    } else if (el.type === "text") {
+      el.x += offset; el.y += offset;
+    }
+    const added = this._addElement(el);
+    this._selected = added.id;
+    this._clipboard = JSON.parse(JSON.stringify(el)); // update clipboard offset
+    this.render();
+  }
+
+  // ── Duplicate selected ────────────────────────────────────────────────────────
+  duplicateSelected() {
+    this.copySelected();
+    this.paste();
+  }
+
+  // ── Edit element properties via prompt ────────────────────────────────────────
+  editElement(id) {
+    const el = this.elements.find(e => e.id === id);
+    if (!el) return;
+
+    if (el.type === "text") {
+      const text = prompt("Edit label:", el.text);
+      if (text !== null) { this._pushUndo(); el.text = text; this.render(); }
+    } else if (el.type === "arrow") {
+      const label = prompt("Arrow label:", el.label || "");
+      if (label !== null) { this._pushUndo(); el.label = label; this.render(); }
+    } else if (el.type === "line" || el.type === "rect" || el.type === "curve" || el.type === "freehand") {
+      // Edit color for any shape
+      const color = prompt("Stroke color (hex):", el.color);
+      if (color !== null && color.trim()) {
+        this._pushUndo();
+        el.color = color.trim();
+        this.render();
+      }
+    }
+  }
+
   // ── Build smooth SVG path from points array ──────────────────────────────────
-  // Uses Catmull-Rom → cubic bezier conversion for smooth curves through all points
   _buildSmoothPath(pts) {
     if (pts.length < 2) return "";
     if (pts.length === 2) return `M${pts[0].x},${pts[0].y} L${pts[1].x},${pts[1].y}`;
@@ -158,7 +232,6 @@ export class GraphCanvas {
       const p2 = pts[i + 1];
       const p3 = pts[Math.min(i + 2, pts.length - 1)];
 
-      // Catmull-Rom to cubic bezier control points
       const cp1x = p1.x + (p2.x - p0.x) / 6;
       const cp1y = p1.y + (p2.y - p0.y) / 6;
       const cp2x = p2.x - (p3.x - p1.x) / 6;
@@ -169,7 +242,7 @@ export class GraphCanvas {
     return d;
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────────
   render() {
     this.svg.querySelectorAll(".gc-el, .gc-temp, .gc-temp-curve").forEach(e => e.remove());
     this._renderGrid();
@@ -185,26 +258,62 @@ export class GraphCanvas {
     }
   }
 
+  // ── Render endpoint handles for selected line/arrow/rect ──────────────────────
+  _renderHandles(g, el) {
+    const handleR = 5;
+    const handleStyle = { r: handleR, fill: "#f59e0b", stroke: "#fff", "stroke-width": 1.5, class: "gc-handle", cursor: "pointer" };
+
+    if (el.type === "line" || el.type === "arrow") {
+      g.appendChild(this._svgEl("circle", { ...handleStyle, cx: el.x1, cy: el.y1, "data-handle": "start" }));
+      g.appendChild(this._svgEl("circle", { ...handleStyle, cx: el.x2, cy: el.y2, "data-handle": "end" }));
+      // Midpoint handle for moving
+      const mx = (el.x1 + el.x2) / 2, my = (el.y1 + el.y2) / 2;
+      g.appendChild(this._svgEl("circle", { r: 4, fill: "#3b82f6", stroke: "#fff", "stroke-width": 1, cx: mx, cy: my, class: "gc-handle", "data-handle": "mid", cursor: "move" }));
+    } else if (el.type === "rect") {
+      const x1 = Math.min(el.x1, el.x2), y1 = Math.min(el.y1, el.y2);
+      const x2 = Math.max(el.x1, el.x2), y2 = Math.max(el.y1, el.y2);
+      // Four corner handles
+      g.appendChild(this._svgEl("circle", { ...handleStyle, cx: x1, cy: y1, "data-handle": "tl" }));
+      g.appendChild(this._svgEl("circle", { ...handleStyle, cx: x2, cy: y1, "data-handle": "tr" }));
+      g.appendChild(this._svgEl("circle", { ...handleStyle, cx: x1, cy: y2, "data-handle": "bl" }));
+      g.appendChild(this._svgEl("circle", { ...handleStyle, cx: x2, cy: y2, "data-handle": "br" }));
+      // Edge midpoint handles
+      g.appendChild(this._svgEl("rect", { x: (x1+x2)/2 - 3, y: y1 - 3, width: 6, height: 6, fill: "#3b82f6", stroke: "#fff", "stroke-width": 1, class: "gc-handle", "data-handle": "tm", cursor: "n-resize" }));
+      g.appendChild(this._svgEl("rect", { x: (x1+x2)/2 - 3, y: y2 - 3, width: 6, height: 6, fill: "#3b82f6", stroke: "#fff", "stroke-width": 1, class: "gc-handle", "data-handle": "bm", cursor: "s-resize" }));
+      g.appendChild(this._svgEl("rect", { x: x1 - 3, y: (y1+y2)/2 - 3, width: 6, height: 6, fill: "#3b82f6", stroke: "#fff", "stroke-width": 1, class: "gc-handle", "data-handle": "ml", cursor: "w-resize" }));
+      g.appendChild(this._svgEl("rect", { x: x2 - 3, y: (y1+y2)/2 - 3, width: 6, height: 6, fill: "#3b82f6", stroke: "#fff", "stroke-width": 1, class: "gc-handle", "data-handle": "mr", cursor: "e-resize" }));
+    }
+  }
+
   _renderElement(el) {
     const g = this._svgG();
+    const isSelected = el.id === this._selected;
 
     switch (el.type) {
       case "line": {
+        // Invisible fat hit area for easier clicking
+        g.appendChild(this._svgEl("line", {
+          x1: el.x1, y1: el.y1, x2: el.x2, y2: el.y2,
+          stroke: "transparent", "stroke-width": Math.max(el.width + 8, 12),
+        }));
         g.appendChild(this._svgEl("line", {
           x1: el.x1, y1: el.y1, x2: el.x2, y2: el.y2,
           stroke: el.color, "stroke-width": el.width, "stroke-linecap": "round",
         }));
+        if (isSelected) this._renderHandles(g, el);
         break;
       }
 
       case "curve": {
-        // Multi-point smooth curve
         const d = this._buildSmoothPath(el.points);
+        // Fat hit area
+        g.appendChild(this._svgEl("path", {
+          d, fill: "none", stroke: "transparent", "stroke-width": Math.max(el.width + 8, 12),
+        }));
         g.appendChild(this._svgEl("path", {
           d, fill: "none", stroke: el.color, "stroke-width": el.width, "stroke-linecap": "round",
         }));
-        // Show control points when selected
-        if (el.id === this._selected) {
+        if (isSelected) {
           el.points.forEach((p, i) => {
             g.appendChild(this._svgEl("circle", {
               cx: p.x, cy: p.y, r: 5,
@@ -219,6 +328,11 @@ export class GraphCanvas {
       case "arrow": {
         const angle = Math.atan2(el.y2 - el.y1, el.x2 - el.x1);
         const hl = 12;
+        // Fat hit area
+        g.appendChild(this._svgEl("line", {
+          x1: el.x1, y1: el.y1, x2: el.x2, y2: el.y2,
+          stroke: "transparent", "stroke-width": Math.max(el.width + 8, 12),
+        }));
         g.appendChild(this._svgEl("line", {
           x1: el.x1, y1: el.y1, x2: el.x2, y2: el.y2,
           stroke: el.color, "stroke-width": el.width, "stroke-linecap": "round",
@@ -233,16 +347,15 @@ export class GraphCanvas {
           t.textContent = el.label;
           g.appendChild(t);
         }
+        if (isSelected) this._renderHandles(g, el);
         break;
       }
 
       case "text": {
-        // Boxed label — background rect + text
         const fontSize = el.fontSize || 14;
         const vertical = el.vertical || false;
         const text = el.text || "";
 
-        // We need to measure text. Use a rough estimate: ~8px per char at 14px font
         const charW = fontSize * 0.58;
         const textW = text.length * charW;
         const textH = fontSize;
@@ -262,7 +375,6 @@ export class GraphCanvas {
           ty = el.y + padY + textH * 0.85;
         }
 
-        // Background box
         g.appendChild(this._svgEl("rect", {
           x: el.x, y: el.y, width: boxW, height: boxH,
           fill: "rgba(10,10,10,0.8)", stroke: el.color, "stroke-width": 1, rx: 3,
@@ -277,8 +389,7 @@ export class GraphCanvas {
         t.textContent = text;
         g.appendChild(t);
 
-        // Vertical indicator when selected
-        if (el.id === this._selected) {
+        if (isSelected) {
           const indicator = vertical ? "↕" : "↔";
           const indT = this._svgEl("text", {
             x: el.x + boxW + 4, y: el.y + 12,
@@ -296,6 +407,7 @@ export class GraphCanvas {
           width: Math.abs(el.x2 - el.x1), height: Math.abs(el.y2 - el.y1),
           fill: "none", stroke: el.color, "stroke-width": el.width, rx: 2,
         }));
+        if (isSelected) this._renderHandles(g, el);
         break;
       }
 
@@ -303,6 +415,10 @@ export class GraphCanvas {
         if (el.points.length < 2) break;
         let d = `M${el.points[0].x},${el.points[0].y}`;
         for (let i = 1; i < el.points.length; i++) d += ` L${el.points[i].x},${el.points[i].y}`;
+        // Fat hit area
+        g.appendChild(this._svgEl("path", {
+          d, fill: "none", stroke: "transparent", "stroke-width": Math.max(el.width + 8, 12),
+        }));
         g.appendChild(this._svgEl("path", {
           d, fill: "none", stroke: el.color, "stroke-width": el.width, "stroke-linecap": "round", "stroke-linejoin": "round",
         }));
@@ -312,7 +428,7 @@ export class GraphCanvas {
     return g;
   }
 
-  // ── Events ───────────────────────────────────────────────────────────────────
+  // ── Events ─────────────────────────────────────────────────────────────────────
   _bindEvents() {
     this.svg.addEventListener("pointerdown", e => this._onDown(e));
     this.svg.addEventListener("pointermove", e => this._onMove(e));
@@ -322,13 +438,13 @@ export class GraphCanvas {
   }
 
   _onDown(e) {
-    if (e.button === 2) return; // right-click handled separately
+    if (e.button === 2) return;
     const raw = this._svgPt(e);
     const pt = this._snap(raw.x, raw.y);
 
     // ── Select tool ──
     if (this.tool === "select") {
-      // Check if clicking the orient toggle on a text label
+      // Check orient toggle
       if (e.target.classList.contains("gc-orient-toggle")) {
         const el = this.elements.find(el => el.id === this._selected);
         if (el && el.type === "text") {
@@ -338,7 +454,19 @@ export class GraphCanvas {
           return;
         }
       }
-      // Check if dragging a curve control point
+
+      // Check endpoint handle drag
+      if (e.target.classList.contains("gc-handle")) {
+        const handle = e.target.getAttribute("data-handle");
+        const elG = e.target.closest(".gc-el");
+        if (elG) {
+          this._draggingHandle = { id: parseInt(elG.dataset.id), handle };
+          this._pushUndo();
+          return;
+        }
+      }
+
+      // Check curve control point drag
       if (e.target.classList.contains("gc-cp")) {
         const idx = parseInt(e.target.getAttribute("data-pt-idx"));
         const elG = e.target.closest(".gc-el");
@@ -348,6 +476,8 @@ export class GraphCanvas {
           return;
         }
       }
+
+      // Click on element to select
       const target = e.target.closest(".gc-el");
       if (target) {
         this._selected = parseInt(target.dataset.id);
@@ -369,14 +499,14 @@ export class GraphCanvas {
       return;
     }
 
-    // ── Curve tool — left-click adds a point ──
+    // ── Curve tool ──
     if (this.tool === "curve") {
       this._curvePoints.push(pt);
       this._renderTempCurve();
       return;
     }
 
-    // ── Line / Arrow / Rect / Freehand — drag-based ──
+    // ── Line / Arrow / Rect / Freehand ──
     this._drawing = true;
     this._start = pt;
     if (this.tool === "freehand") this._freehandPts = [pt];
@@ -385,6 +515,41 @@ export class GraphCanvas {
   _onMove(e) {
     const raw = this._svgPt(e);
     const pt = this._snap(raw.x, raw.y);
+
+    // Dragging an endpoint handle
+    if (this._draggingHandle && e.buttons) {
+      const el = this.elements.find(el => el.id === this._draggingHandle.id);
+      if (!el) return;
+      const h = this._draggingHandle.handle;
+
+      if (el.type === "line" || el.type === "arrow") {
+        if (h === "start") { el.x1 = pt.x; el.y1 = pt.y; }
+        else if (h === "end") { el.x2 = pt.x; el.y2 = pt.y; }
+        else if (h === "mid") {
+          const dx = raw.x - (this._lastHandlePt || raw).x;
+          const dy = raw.y - (this._lastHandlePt || raw).y;
+          el.x1 += dx; el.y1 += dy; el.x2 += dx; el.y2 += dy;
+          this._lastHandlePt = { x: raw.x, y: raw.y };
+        }
+      } else if (el.type === "rect") {
+        // Normalize so x1,y1 is always TL and x2,y2 is BR for handle ops
+        let x1 = Math.min(el.x1, el.x2), y1 = Math.min(el.y1, el.y2);
+        let x2 = Math.max(el.x1, el.x2), y2 = Math.max(el.y1, el.y2);
+
+        if (h === "tl") { x1 = pt.x; y1 = pt.y; }
+        else if (h === "tr") { x2 = pt.x; y1 = pt.y; }
+        else if (h === "bl") { x1 = pt.x; y2 = pt.y; }
+        else if (h === "br") { x2 = pt.x; y2 = pt.y; }
+        else if (h === "tm") { y1 = pt.y; }
+        else if (h === "bm") { y2 = pt.y; }
+        else if (h === "ml") { x1 = pt.x; }
+        else if (h === "mr") { x2 = pt.x; }
+
+        el.x1 = x1; el.y1 = y1; el.x2 = x2; el.y2 = y2;
+      }
+      this.render();
+      return;
+    }
 
     // Dragging a curve control point
     if (this._draggingCp && e.buttons) {
@@ -402,7 +567,7 @@ export class GraphCanvas {
       return;
     }
 
-    // Drag selected element
+    // Drag selected element (whole element move)
     if (!this._drawing && this.tool === "select" && this._selected && this._dragOffset && e.buttons) {
       const dx = raw.x - this._dragOffset.x;
       const dy = raw.y - this._dragOffset.y;
@@ -449,6 +614,13 @@ export class GraphCanvas {
   }
 
   _onUp(e) {
+    // Finish handle drag
+    if (this._draggingHandle) {
+      this._draggingHandle = null;
+      this._lastHandlePt = null;
+      return;
+    }
+
     // Finish cp drag
     if (this._draggingCp) {
       this._draggingCp = null;
@@ -492,7 +664,6 @@ export class GraphCanvas {
   _onRightClick(e) {
     e.preventDefault();
 
-    // If building a curve, right-click finishes it
     if (this.tool === "curve" && this._curvePoints.length >= 2) {
       this._addElement({
         type: "curve",
@@ -505,7 +676,6 @@ export class GraphCanvas {
       return;
     }
 
-    // If a text label is selected, toggle orientation
     if (this._selected) {
       const el = this.elements.find(el => el.id === this._selected);
       if (el && el.type === "text") {
@@ -520,19 +690,11 @@ export class GraphCanvas {
     const target = e.target.closest(".gc-el");
     if (!target) return;
     const id = parseInt(target.dataset.id);
-    const el = this.elements.find(e => e.id === id);
-    if (!el) return;
-
-    if (el.type === "text") {
-      const text = prompt("Edit label:", el.text);
-      if (text !== null) { this._pushUndo(); el.text = text; this.render(); }
-    } else if (el.type === "arrow") {
-      const label = prompt("Arrow label:", el.label || "");
-      if (label !== null) { this._pushUndo(); el.label = label; this.render(); }
-    }
+    this._selected = id;
+    this.editElement(id);
   }
 
-  // ── Temp rendering helpers ───────────────────────────────────────────────────
+  // ── Temp rendering helpers ─────────────────────────────────────────────────────
   _removeTempEl() {
     this.svg.querySelectorAll(".gc-temp").forEach(e => e.remove());
   }
@@ -552,7 +714,6 @@ export class GraphCanvas {
     const pts = [...this._curvePoints];
     if (mousePos) pts.push(mousePos);
     if (pts.length < 2) {
-      // Just show the first point
       if (pts.length === 1) {
         const g = this._svgG("gc-temp-curve");
         g.appendChild(this._svgEl("circle", { cx: pts[0].x, cy: pts[0].y, r: 4, fill: this.strokeColor }));
@@ -564,7 +725,6 @@ export class GraphCanvas {
     const d = this._buildSmoothPath(pts);
     const g = this._svgG("gc-temp-curve");
     g.appendChild(this._svgEl("path", { d, fill: "none", stroke: this.strokeColor, "stroke-width": this.strokeWidth, opacity: 0.6 }));
-    // Show placed points
     for (const p of this._curvePoints) {
       g.appendChild(this._svgEl("circle", { cx: p.x, cy: p.y, r: 4, fill: this.strokeColor, stroke: "#fff", "stroke-width": 1 }));
     }
@@ -575,13 +735,12 @@ export class GraphCanvas {
     this.svg.querySelectorAll(".gc-temp-curve").forEach(e => e.remove());
   }
 
-  // Cancel in-progress curve (e.g. on Escape)
   cancelCurve() {
     this._curvePoints = [];
     this._removeTempCurve();
   }
 
-  // ── Serialize ────────────────────────────────────────────────────────────────
+  // ── Serialize ──────────────────────────────────────────────────────────────────
   toJSON() {
     return { w: this.w, h: this.h, elements: this.elements, showGrid: this.showGrid, nextId: this.nextId, title: this.title, xLabel: this.xLabel, yLabel: this.yLabel };
   }
@@ -601,7 +760,7 @@ export class GraphCanvas {
     const clone = this.svg.cloneNode(true);
     clone.querySelectorAll(".gc-temp, .gc-temp-curve").forEach(e => e.remove());
     clone.querySelectorAll(".gc-selected").forEach(e => e.classList.remove("gc-selected"));
-    clone.querySelectorAll(".gc-cp, .gc-orient-toggle").forEach(e => e.remove());
+    clone.querySelectorAll(".gc-cp, .gc-orient-toggle, .gc-handle").forEach(e => e.remove());
     const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     bg.setAttribute("width", this.w);
     bg.setAttribute("height", this.h);
