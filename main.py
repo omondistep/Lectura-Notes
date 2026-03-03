@@ -306,20 +306,42 @@ async def list_files(folder: str = "", recursive: bool = True):
         
         for p in NOTES.rglob("*"):
             if p.is_file() and p.suffix == ".md":
-                files.append(p.relative_to(NOTES).as_posix())
+                rel_path = p.relative_to(NOTES).as_posix()
+                # Get first line preview
+                preview = ""
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        first_line = f.readline().strip()
+                        # Remove markdown formatting for preview
+                        preview = first_line.lstrip('#').lstrip('*').lstrip('-').lstrip('>').strip()
+                        if len(preview) > 60:
+                            preview = preview[:60] + "..."
+                except:
+                    preview = ""
+                files.append({"path": rel_path, "preview": preview})
             elif p.is_dir():
                 folders.append(p.relative_to(NOTES).as_posix() + "/")
         
-        files = sorted(files)
+        files = sorted(files, key=lambda x: x["path"])
         folders = sorted(folders)
         return {"files": files, "folders": folders, "current_folder": ""}
     else:
         # Non-recursive: only items in the specified folder
-        files = sorted(
-            p.relative_to(NOTES).as_posix()
-            for p in target_dir.glob("*.md")
-            if p.is_file()
-        )
+        files = []
+        for p in target_dir.glob("*.md"):
+            if p.is_file():
+                rel_path = p.relative_to(NOTES).as_posix()
+                preview = ""
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        first_line = f.readline().strip()
+                        preview = first_line.lstrip('#').lstrip('*').lstrip('-').lstrip('>').strip()
+                        if len(preview) > 60:
+                            preview = preview[:60] + "..."
+                except:
+                    preview = ""
+                files.append({"path": rel_path, "preview": preview})
+        files = sorted(files, key=lambda x: x["path"])
         
         folders = []
         for d in target_dir.iterdir():

@@ -638,27 +638,43 @@ ul.tree-children {
 /* tree file */
 li.tree-file {
   display: flex;
-  align-items: center;
-  padding: 3px 10px;
+  align-items: flex-start;
+  padding: 6px 10px;
   cursor: pointer;
   transition: background .08s;
-  white-space: nowrap;
-  overflow: hidden;
   border-radius: 0;
 }
 li.tree-file:hover { background: var(--bg-hover); }
 li.tree-file.active-file { background: var(--bg-hover); }
 
-li.tree-file > span {
+.file-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+li.tree-file .file-name {
   font-size: 13px;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
+  white-space: nowrap;
+}
+
+.file-preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+  padding-left: 20px;
 }
 
 /* file icon — subtle, not emoji */
-li.tree-file > span::before {
+li.tree-file .file-name::before {
   content: "";
   display: inline-block;
   width: 14px;

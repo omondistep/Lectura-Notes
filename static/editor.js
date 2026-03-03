@@ -976,7 +976,7 @@ async function populateFileList() {
     ul.appendChild(li);
     return;
   }
-  files.sort((a, b) => a.localeCompare(b));
+  files.sort(naturalSort);
   files.forEach(filePath => {
     const li = document.createElement("li");
     const fileName = filePath.split("/").pop();
@@ -1055,7 +1055,9 @@ function buildTree(folders, files) {
       current = current.children[part];
     });
   });
-  files.forEach(filePath => {
+  files.forEach(file => {
+    const filePath = typeof file === 'string' ? file : file.path;
+    const preview = typeof file === 'object' ? file.preview : '';
     const parts = filePath.split("/");
     const fileName = parts.pop();
     let current = tree;
@@ -1063,13 +1065,25 @@ function buildTree(folders, files) {
       if (!current.children[part]) current.children[part] = { children: {}, files: [], path: part };
       current = current.children[part];
     });
-    current.files.push({ name: fileName, path: filePath });
+    current.files.push({ name: fileName, path: filePath, preview: preview });
   });
   return tree;
 }
 
+function naturalSort(a, b) {
+  const ax = [], bx = [];
+  a.replace(/(\d+)|(\D+)/g, (_, n, s) => ax.push([n || 0, s || '']));
+  b.replace(/(\d+)|(\D+)/g, (_, n, s) => bx.push([n || 0, s || '']));
+  while (ax.length && bx.length) {
+    const an = ax.shift(), bn = bx.shift();
+    const nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
+    if (nn) return nn;
+  }
+  return ax.length - bx.length;
+}
+
 function renderTree(node, container) {
-  Object.keys(node.children).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })).forEach(folderName => {
+  Object.keys(node.children).sort(naturalSort).forEach(folderName => {
     const folderNode = node.children[folderName];
     const folderPath = folderNode.path || folderName;
     const isExpanded = expandedFolders.has(folderPath);
@@ -1135,16 +1149,29 @@ function renderTree(node, container) {
     }
   });
 
-  node.files.sort((a, b) => a.name.localeCompare(b.name)).forEach(file => {
+  node.files.sort((a, b) => naturalSort(a.name, b.name)).forEach(file => {
     const li = document.createElement("li");
     li.className = "tree-file";
     if (file.path === currentFile) li.classList.add("active-file");
     li.dataset.filePath = file.path;
     li.draggable = true;
 
+    const fileContent = document.createElement("div");
+    fileContent.className = "file-content";
+    
     const span = document.createElement("span");
+    span.className = "file-name";
     span.textContent = file.name;
-    li.appendChild(span);
+    fileContent.appendChild(span);
+    
+    if (file.preview) {
+      const preview = document.createElement("div");
+      preview.className = "file-preview";
+      preview.textContent = file.preview;
+      fileContent.appendChild(preview);
+    }
+    
+    li.appendChild(fileContent);
 
     li.addEventListener("click", () => openFile(file.path));
     li.addEventListener("dragstart", (e) => {
@@ -1279,12 +1306,70 @@ async function moveFile(sourcePath, newPath) {
 }
 
 // ── New file button ──────────────────────────────────────────────────────────
-document.getElementById("btn-new").addEventListener("click", () => {
+document.getElementById("btn-new").addEventListener("click", async () => {
   closeAllMenus();
-  currentFile = currentFolder ? `${currentFolder}/untitled.md` : "untitled.md";
-  document.getElementById("filename-input").value = "untitled.md";
-  setContent("");
-  setStatus("New note");
+  
+  // Use native file dialog in Electron (like Typora)
+  if (window.electronAPI?.createNewFileDialog) {
+    const folder = currentFolder || workspacePath || "";
+    const defaultPath = folder ? `${folder}/untitled.md` : "untitled.md";
+    const filePath = await window.electronAPI.createNewFileDialog(defaultPath);
+    
+    if (filePath) {
+      // Create empty file on disk
+      const r = await fetch(`/files/${encodeURIComponent(filePath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "" })
+      });
+      
+      if (r.ok) {
+        currentFile = filePath;
+        const fileName = filePath.split("/").pop();
+        document.getElementById("filename-input").value = fileName;
+        setContent("");
+        await loadFileList();
+        setStatus(`Created ${fileName}`);
+      } else {
+        setStatus("Failed to create file", true);
+      }
+    }
+    return;
+  }
+  
+  // Fallback for web mode
+  const folder = currentFolder || "";
+  let counter = 1;
+  let fileName = "untitled.md";
+  let fullPath = folder ? `${folder}/${fileName}` : fileName;
+  
+  const res = await fetch("/files");
+  const { files } = await res.json();
+  while (files.includes(fullPath)) {
+    fileName = `untitled-${counter}.md`;
+    fullPath = folder ? `${folder}/${fileName}` : fileName;
+    counter++;
+  }
+  
+  const r = await fetch(`/files/${encodeURIComponent(fullPath)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "" })
+  });
+  
+  if (r.ok) {
+    currentFile = fullPath;
+    document.getElementById("filename-input").value = fileName;
+    setContent("");
+    await loadFileList();
+    setStatus(`Created ${fileName}`);
+    setTimeout(() => {
+      const input = document.getElementById("filename-input");
+      input.select();
+    }, 100);
+  } else {
+    setStatus("Failed to create file", true);
+  }
 });
 
 document.getElementById("btn-save")?.addEventListener("click", () => { closeAllMenus(); saveFile(); });
@@ -1347,6 +1432,45 @@ contextMenu.addEventListener("click", async (e) => {
   const isFolder = contextMenuIsFolder;
 
   async function createFolder(parentPath, suggestedName = "New Folder") {
+    // Use native folder dialog in Electron
+    if (window.electronAPI?.createNewFolderDialog) {
+      // Build the default path: if parentPath is relative, prepend workspace
+      let defaultPath = parentPath || "";
+      if (defaultPath && workspacePath && !defaultPath.startsWith("/")) {
+        defaultPath = workspacePath + "/" + defaultPath;
+      } else if (!defaultPath) {
+        defaultPath = workspacePath || "";
+      }
+      const folderPath = await window.electronAPI.createNewFolderDialog(defaultPath);
+
+      if (folderPath) {
+        // Convert absolute path to relative path within workspace
+        let relativePath = folderPath;
+        if (workspacePath && folderPath.startsWith(workspacePath)) {
+          relativePath = folderPath.substring(workspacePath.length).replace(/^\//, "");
+        }
+
+        if (!relativePath) {
+          setStatus("Folder must be inside the workspace", true);
+          return;
+        }
+
+        // Tell backend to ensure the folder exists
+        const r = await fetch(`/folders/${encodeURIComponent(relativePath)}`, { method: "POST" });
+        if (r.ok) {
+          const folderName = relativePath.split("/").pop();
+          expandedFolders.add(relativePath);
+          saveExpandedFolders();
+          await loadFileList();
+          setStatus(`Created folder "${folderName}"`);
+        } else {
+          setStatus("Failed to create folder", true);
+        }
+      }
+      return;
+    }
+    
+    // Fallback for web mode
     const name = prompt("Folder name:", suggestedName);
     if (!name) return;
     const fullPath = parentPath ? `${parentPath}/${name}` : name;
@@ -1363,24 +1487,133 @@ contextMenu.addEventListener("click", async (e) => {
         await createFolder(parent);
         break;
       }
+      
+      // Use native file dialog in Electron (like Typora)
+      if (window.electronAPI?.createNewFileDialog) {
+        const folder = target && isFolder ? target : (target ? target.substring(0, target.lastIndexOf("/")) : "");
+        const defaultPath = folder ? `${folder}/untitled.md` : "untitled.md";
+        const filePath = await window.electronAPI.createNewFileDialog(defaultPath);
+        
+        if (filePath) {
+          const r = await fetch(`/files/${encodeURIComponent(filePath)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: "" })
+          });
+          
+          if (r.ok) {
+            currentFile = filePath;
+            const fileName = filePath.split("/").pop();
+            document.getElementById("filename-input").value = fileName;
+            setContent("");
+            await loadFileList();
+            setStatus(`Created ${fileName}`);
+          } else {
+            setStatus("Failed to create file", true);
+          }
+        }
+        break;
+      }
+      
+      // Fallback for web mode
       const folder = target && isFolder ? target : (target ? target.substring(0, target.lastIndexOf("/")) : "");
-      const path = folder ? `${folder}/untitled.md` : "untitled.md";
-      currentFile = path;
-      document.getElementById("filename-input").value = "untitled.md";
-      setContent("");
-      setStatus("New note");
-      loadFileList();
+      const res = await fetch("/files");
+      const { files } = await res.json();
+      let counter = 1;
+      let fileName = "untitled.md";
+      let fullPath = folder ? `${folder}/${fileName}` : fileName;
+      while (files.includes(fullPath)) {
+        fileName = `untitled-${counter}.md`;
+        fullPath = folder ? `${folder}/${fileName}` : fileName;
+        counter++;
+      }
+      
+      const r = await fetch(`/files/${encodeURIComponent(fullPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "" })
+      });
+      
+      if (r.ok) {
+        currentFile = fullPath;
+        document.getElementById("filename-input").value = fileName;
+        setContent("");
+        await loadFileList();
+        setStatus(`Created ${fileName}`);
+        setTimeout(() => {
+          const input = document.getElementById("filename-input");
+          input.select();
+        }, 100);
+      } else {
+        setStatus("Failed to create file", true);
+      }
       break;
     }
     case "new-file-in-folder": {
       if (!target) break;
       const folder = target.replace(/\/$/, "");
-      currentFile = `${folder}/untitled.md`;
-      document.getElementById("filename-input").value = "untitled.md";
-      setContent("");
-      expandedFolders.add(folder);
-      saveExpandedFolders();
-      loadFileList();
+      
+      // Use native file dialog in Electron (like Typora)
+      if (window.electronAPI?.createNewFileDialog) {
+        const defaultPath = `${folder}/untitled.md`;
+        const filePath = await window.electronAPI.createNewFileDialog(defaultPath);
+        
+        if (filePath) {
+          const r = await fetch(`/files/${encodeURIComponent(filePath)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: "" })
+          });
+          
+          if (r.ok) {
+            currentFile = filePath;
+            const fileName = filePath.split("/").pop();
+            document.getElementById("filename-input").value = fileName;
+            setContent("");
+            expandedFolders.add(folder);
+            saveExpandedFolders();
+            await loadFileList();
+            setStatus(`Created ${fileName}`);
+          } else {
+            setStatus("Failed to create file", true);
+          }
+        }
+        break;
+      }
+      
+      // Fallback for web mode
+      const res = await fetch("/files");
+      const { files } = await res.json();
+      let counter = 1;
+      let fileName = "untitled.md";
+      let fullPath = `${folder}/${fileName}`;
+      while (files.includes(fullPath)) {
+        fileName = `untitled-${counter}.md`;
+        fullPath = `${folder}/${fileName}`;
+        counter++;
+      }
+      
+      const r = await fetch(`/files/${encodeURIComponent(fullPath)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "" })
+      });
+      
+      if (r.ok) {
+        currentFile = fullPath;
+        document.getElementById("filename-input").value = fileName;
+        setContent("");
+        expandedFolders.add(folder);
+        saveExpandedFolders();
+        await loadFileList();
+        setStatus(`Created ${fileName}`);
+        setTimeout(() => {
+          const input = document.getElementById("filename-input");
+          input.select();
+        }, 100);
+      } else {
+        setStatus("Failed to create file", true);
+      }
       break;
     }
     case "new-folder":
@@ -2199,19 +2432,21 @@ let folderBrowserCurrent = "";
 
 async function openFolderDialog() {
   closeAllMenus();
-  // In Electron, use native OS folder picker (like Typora)
+  // In Electron, directly open native OS folder picker
   if (window.electronAPI?.openFolderDialog) {
-    const folderPath = await window.electronAPI.openFolderDialog();
+    const folderPath = await window.electronAPI.openFolderDialog(workspacePath || "");
     if (folderPath) setWorkspace(folderPath);
     return;
   }
   // Fallback: custom HTML folder browser for web mode
   document.getElementById("folder-dialog-overlay").classList.remove("hidden");
+  document.getElementById("folder-dialog").classList.remove("hidden");
   browseTo(workspacePath || "");
 }
 
 function closeFolderDialog() {
   document.getElementById("folder-dialog-overlay").classList.add("hidden");
+  document.getElementById("folder-dialog")?.classList.add("hidden");
 }
 
 async function browseTo(dirPath) {

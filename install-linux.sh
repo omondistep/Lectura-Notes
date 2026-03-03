@@ -117,6 +117,7 @@ install_files() {
 
     if [[ "$INSTALL_MODE" == "electron" ]]; then
         cp "$SOURCE_DIR/electron-main.js" "$INSTALL_DIR/"
+        cp "$SOURCE_DIR/preload.js" "$INSTALL_DIR/"
         cp "$SOURCE_DIR/package.json" "$INSTALL_DIR/"
     fi
 

@@ -21,143 +21,6 @@ function startPython() {
   pythonProcess.stderr.on('data', (data) => console.error(`[Python] ${data}`));
 }
 
-function createMenu() {
-  const template = [
-    {
-      label: 'File',
-      submenu: [
-        {
-          label: 'New Note',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-new").click()')
-        },
-        {
-          label: 'Open Folder…',
-          accelerator: 'CmdOrCtrl+Shift+O',
-          click: async () => {
-            const result = await dialog.showOpenDialog(mainWindow, {
-              properties: ['openDirectory']
-            });
-            if (!result.canceled && result.filePaths.length > 0) {
-              const folderPath = result.filePaths[0].replace(/\\/g, '/');
-              mainWindow.webContents.executeJavaScript(
-                `setWorkspace(${JSON.stringify(folderPath)}); void 0`
-              );
-            }
-          }
-        },
-        {
-          label: 'New Window',
-          accelerator: 'CmdOrCtrl+Shift+N',
-          click: () => createWindow()
-        },
-        { type: 'separator' },
-        {
-          label: 'Save',
-          accelerator: 'CmdOrCtrl+S',
-          click: () => mainWindow.webContents.executeJavaScript('saveFile()')
-        },
-        {
-          label: 'Save As…',
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: () => mainWindow.webContents.executeJavaScript('saveAs()')
-        },
-        { type: 'separator' },
-        {
-          label: 'Close',
-          accelerator: 'CmdOrCtrl+W',
-          click: () => mainWindow.webContents.executeJavaScript('setContent(""); currentFile = "untitled.md"; document.getElementById("filename-input").value = "untitled.md";')
-        },
-        {
-          label: 'Preferences',
-          accelerator: 'CmdOrCtrl+,',
-          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-settings").click()')
-        },
-        { type: 'separator' },
-        {
-          label: 'Quit',
-          accelerator: 'CmdOrCtrl+Q',
-          click: () => app.quit()
-        }
-      ]
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
-        { type: 'separator' },
-        {
-          label: 'Find',
-          accelerator: 'CmdOrCtrl+F',
-          click: () => mainWindow.webContents.executeJavaScript('document.querySelector(".cm-editor").cmView.view.dispatch({effects: []});document.execCommand("find")')
-        },
-        {
-          label: 'Replace',
-          accelerator: 'CmdOrCtrl+H',
-          click: () => mainWindow.webContents.executeJavaScript('document.execCommand("replace")')
-        }
-      ]
-    },
-    {
-      label: 'View',
-      submenu: [
-        {
-          label: 'Toggle Sidebar',
-          accelerator: 'CmdOrCtrl+B',
-          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-sidebar").click()')
-        },
-        {
-          label: 'Toggle Preview',
-          accelerator: 'CmdOrCtrl+/',
-          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-toggle-preview").click()')
-        },
-        {
-          label: 'Focus Mode',
-          accelerator: 'F8',
-          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-focus").click()')
-        },
-        { type: 'separator' },
-        {
-          label: 'Zoom In',
-          accelerator: 'CmdOrCtrl+Shift+=',
-          role: 'zoomIn'
-        },
-        {
-          label: 'Zoom Out',
-          accelerator: 'CmdOrCtrl+Shift+-',
-          role: 'zoomOut'
-        },
-        {
-          label: 'Actual Size',
-          accelerator: 'CmdOrCtrl+Shift+0',
-          role: 'resetZoom'
-        },
-        { type: 'separator' },
-        { role: 'reload' },
-        { role: 'toggleDevTools' }
-      ]
-    },
-    {
-      label: 'Help',
-      submenu: [
-        {
-          label: 'Markdown Help',
-          click: () => mainWindow.webContents.executeJavaScript('document.getElementById("btn-help").click()')
-        }
-      ]
-    }
-  ];
-
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
-}
-
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -170,7 +33,8 @@ function createWindow() {
     }
   });
 
-  createMenu();
+  // Hide native menu bar
+  Menu.setApplicationMenu(null);
 
   setTimeout(() => {
     mainWindow.loadURL('http://localhost:8000');
@@ -181,8 +45,41 @@ function createWindow() {
   });
 }
 
-ipcMain.handle('open-folder-dialog', async () => {
+ipcMain.handle('open-folder-dialog', async (event, defaultPath) => {
   const result = await dialog.showOpenDialog(mainWindow, {
+    defaultPath: defaultPath || os.homedir(),
+    properties: ['openDirectory']
+  });
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0].replace(/\\/g, '/');
+  }
+  return null;
+});
+
+ipcMain.handle('create-new-file-dialog', async (event, defaultPath) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Create New File',
+    defaultPath: defaultPath || 'untitled.md',
+    filters: [
+      { name: 'Markdown', extensions: ['md'] },
+      { name: 'Plain Text', extensions: ['txt'] },
+      { name: 'Text Bundle', extensions: ['textbundle'] }
+    ],
+    properties: ['createDirectory', 'showOverwriteConfirmation']
+  });
+  if (!result.canceled && result.filePath) {
+    return result.filePath.replace(/\\/g, '/');
+  }
+  return null;
+});
+
+ipcMain.handle('create-new-folder-dialog', async (event, defaultPath) => {
+  // Native OS folder picker — user can right-click > "New Folder" inside the dialog
+  // then select it, just like Typora's "Open Folder"
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select or Create Folder',
+    defaultPath: defaultPath || '',
+    buttonLabel: 'Select',
     properties: ['openDirectory']
   });
   if (!result.canceled && result.filePaths.length > 0) {
