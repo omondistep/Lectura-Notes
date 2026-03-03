@@ -120,12 +120,11 @@
       <div class="menu-panel">
         <button id="btn-toggle-sidebar" data-shortcut="Ctrl+Shift+L">Toggle Sidebar</button>
         <div class="menu-sep"></div>
-        <button id="btn-toggle-source" data-shortcut="Ctrl+/">Source Code Mode</button>
-        <div class="menu-sep"></div>
         <button id="btn-focus" data-shortcut="F8">Focus Mode</button>
-        <button id="btn-typewriter" data-shortcut="F9">Typewriter Mode</button>
         <div class="menu-sep"></div>
-        <button id="btn-toggle-preview">Toggle Preview</button>
+        <button id="btn-toggle-terminal" data-shortcut="Ctrl+`">Toggle Terminal</button>
+        <div class="menu-sep"></div>
+        <button id="btn-toggle-preview">Toggle Render</button>
         <div class="menu-sep"></div>
         <button id="btn-publish">Publish…</button>
       </div>
@@ -207,6 +206,9 @@
       <button class="sidebar-tab" data-mode="outline" title="Outline">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3.5a.5.5 0 01.5-.5h11a.5.5 0 010 1h-11a.5.5 0 01-.5-.5zm2 3a.5.5 0 01.5-.5h9a.5.5 0 010 1h-9a.5.5 0 01-.5-.5zm2 3a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zm-2 3a.5.5 0 01.5-.5h9a.5.5 0 010 1h-9a.5.5 0 01-.5-.5z"/></svg>
       </button>
+      <button class="sidebar-tab" data-mode="git" title="Git">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </button>
       <div class="sidebar-tab-spacer"></div>
       <button id="btn-refresh-files" class="sidebar-tab" title="Refresh">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.418A6 6 0 118 2v1z"/><path d="M8 4.466V.534a.25.25 0 01.41-.192l2.36 1.966a.25.25 0 010 .384L8.41 4.658A.25.25 0 018 4.466z"/></svg>
@@ -239,6 +241,46 @@
       <div id="outline-empty" class="sidebar-empty">No headings</div>
     </div>
 
+    <!-- git mode content -->
+    <div class="sidebar-content" data-for="git" style="display:none">
+      <div id="git-auth" class="git-section">
+        <button id="btn-github-signin" class="git-signin-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          Sign in with GitHub
+        </button>
+      </div>
+      
+      <div id="git-panel" class="git-section hidden">
+        <div class="git-user-info">
+          <img id="git-avatar" class="git-avatar" src="" alt="">
+          <div class="git-user-details">
+            <div id="git-username" class="git-username"></div>
+            <div id="git-repo" class="git-repo"></div>
+          </div>
+          <button id="btn-github-signout" class="git-signout-btn" title="Sign out">×</button>
+        </div>
+        
+        <div class="git-status">
+          <div id="git-branch" class="git-branch">main</div>
+          <div id="git-changes" class="git-changes">No changes</div>
+        </div>
+        
+        <div class="git-commit-section">
+          <textarea id="git-commit-message" placeholder="Commit message..." rows="2"></textarea>
+          <div class="git-actions">
+            <button id="btn-git-commit" class="git-btn git-btn-primary" disabled>Commit</button>
+            <button id="btn-git-push" class="git-btn git-btn-secondary" disabled>Push</button>
+          </div>
+        </div>
+        
+        <div id="git-file-changes" class="git-file-list">
+          <!-- Changed files will be listed here -->
+        </div>
+      </div>
+    </div>
+
     <!-- search results (overlay on any mode) -->
     <ul id="search-results" class="hidden"></ul>
 
@@ -255,15 +297,45 @@
     <div id="sidebar-resize-handle"></div>
   </aside>
 
-  <!-- editor pane -->
+  <!-- preview pane (now on left) -->
+  <div id="preview-pane">
+    <div id="preview"></div>
+  </div>
+
+  <!-- resize handle between preview and editor -->
+  <div id="preview-editor-resize-handle"></div>
+
+  <!-- editor pane (now on right) -->
   <div id="editor-pane">
     <div id="cm-editor"></div>
   </div>
 
-  <!-- preview pane -->
-  <div id="preview-pane">
-    <div id="preview"></div>
+  <!-- terminal panel -->
+  <div id="terminal-panel" class="terminal-panel hidden">
+    <div class="terminal-header">
+      <div class="terminal-tabs">
+        <div class="terminal-tab active" data-terminal="1">
+          <span>Terminal</span>
+          <button class="terminal-tab-close">×</button>
+        </div>
+        <button class="terminal-new-tab">+</button>
+      </div>
+      <div class="terminal-controls">
+        <button id="btn-terminal-toggle" class="terminal-control-btn" title="Toggle Terminal">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2z"/>
+            <path d="M6.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h1z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="terminal-content">
+      <div id="terminal-1" class="terminal-instance active"></div>
+    </div>
   </div>
+
+  <!-- terminal resize handle -->
+  <div id="terminal-resize-handle" class="terminal-resize-handle hidden"></div>
 </div>
 
 <!-- context menu (file tree) -->
@@ -438,32 +510,76 @@
       <div class="help-row"><span class="help-syntax"># Heading 1</span><span class="help-desc">Largest heading</span></div>
       <div class="help-row"><span class="help-syntax">## Heading 2</span><span class="help-desc">Section heading</span></div>
       <div class="help-row"><span class="help-syntax">### Heading 3</span><span class="help-desc">Subsection</span></div>
+      <div class="help-row"><span class="help-syntax">#### Heading 4</span><span class="help-desc">Sub-subsection</span></div>
+      <div class="help-row"><span class="help-syntax">##### Heading 5</span><span class="help-desc">Minor heading</span></div>
+      <div class="help-row"><span class="help-syntax">###### Heading 6</span><span class="help-desc">Smallest heading</span></div>
+      <div class="help-row"><span class="help-syntax">Alt H1<br>======</span><span class="help-desc">Alternative H1</span></div>
+      <div class="help-row"><span class="help-syntax">Alt H2<br>------</span><span class="help-desc">Alternative H2</span></div>
     </div>
     <div class="help-section">
       <h3>Emphasis</h3>
-      <div class="help-row"><span class="help-syntax">**bold**</span><span class="help-desc"><strong>Bold</strong></span></div>
-      <div class="help-row"><span class="help-syntax">*italic*</span><span class="help-desc"><em>Italic</em></span></div>
-      <div class="help-row"><span class="help-syntax">~~strike~~</span><span class="help-desc"><s>Strikethrough</s></span></div>
+      <div class="help-row"><span class="help-syntax">**bold**</span><span class="help-desc"><strong>Bold text</strong></span></div>
+      <div class="help-row"><span class="help-syntax">__bold__</span><span class="help-desc"><strong>Bold text</strong></span></div>
+      <div class="help-row"><span class="help-syntax">*italic*</span><span class="help-desc"><em>Italic text</em></span></div>
+      <div class="help-row"><span class="help-syntax">_italic_</span><span class="help-desc"><em>Italic text</em></span></div>
+      <div class="help-row"><span class="help-syntax">***bold italic***</span><span class="help-desc"><strong><em>Bold italic</em></strong></span></div>
+      <div class="help-row"><span class="help-syntax">~~strikethrough~~</span><span class="help-desc"><s>Strikethrough</s></span></div>
       <div class="help-row"><span class="help-syntax">==highlight==</span><span class="help-desc"><mark>Highlight</mark></span></div>
-      <div class="help-row"><span class="help-syntax">`code`</span><span class="help-desc">Inline code</span></div>
     </div>
     <div class="help-section">
       <h3>Lists</h3>
-      <div class="help-row"><span class="help-syntax">- item</span><span class="help-desc">Bullet list</span></div>
-      <div class="help-row"><span class="help-syntax">1. item</span><span class="help-desc">Numbered list</span></div>
-      <div class="help-row"><span class="help-syntax">- [ ] task</span><span class="help-desc">Task item</span></div>
+      <div class="help-row"><span class="help-syntax">- Unordered item</span><span class="help-desc">Bullet list</span></div>
+      <div class="help-row"><span class="help-syntax">* Unordered item</span><span class="help-desc">Bullet list</span></div>
+      <div class="help-row"><span class="help-syntax">+ Unordered item</span><span class="help-desc">Bullet list</span></div>
+      <div class="help-row"><span class="help-syntax">1. Ordered item</span><span class="help-desc">Numbered list</span></div>
+      <div class="help-row"><span class="help-syntax">- [ ] Task item</span><span class="help-desc">Unchecked task</span></div>
+      <div class="help-row"><span class="help-syntax">- [x] Task item</span><span class="help-desc">Checked task</span></div>
+      <div class="help-row"><span class="help-syntax">    - Nested item</span><span class="help-desc">Indented list</span></div>
     </div>
     <div class="help-section">
       <h3>Links &amp; Images</h3>
-      <div class="help-row"><span class="help-syntax">[text](url)</span><span class="help-desc">Hyperlink</span></div>
+      <div class="help-row"><span class="help-syntax">[text](url)</span><span class="help-desc">Basic link</span></div>
+      <div class="help-row"><span class="help-syntax">[text](url "title")</span><span class="help-desc">Link with title</span></div>
+      <div class="help-row"><span class="help-syntax">&lt;url&gt;</span><span class="help-desc">Automatic link</span></div>
+      <div class="help-row"><span class="help-syntax">[text][ref]</span><span class="help-desc">Reference link</span></div>
+      <div class="help-row"><span class="help-syntax">[ref]: url</span><span class="help-desc">Reference definition</span></div>
       <div class="help-row"><span class="help-syntax">![alt](url)</span><span class="help-desc">Image</span></div>
+      <div class="help-row"><span class="help-syntax">[![alt](img)](url)</span><span class="help-desc">Linked image</span></div>
+    </div>
+    <div class="help-section">
+      <h3>Code</h3>
+      <div class="help-row"><span class="help-syntax">`inline code`</span><span class="help-desc">Inline code</span></div>
+      <div class="help-row"><span class="help-syntax">``code with `backticks```</span><span class="help-desc">Escaped backticks</span></div>
+      <div class="help-row"><span class="help-syntax">```<br>code block<br>```</span><span class="help-desc">Fenced code block</span></div>
+      <div class="help-row"><span class="help-syntax">```lang<br>code<br>```</span><span class="help-desc">Code with language</span></div>
+      <div class="help-row"><span class="help-syntax">    indented code</span><span class="help-desc">Indented code block</span></div>
     </div>
     <div class="help-section">
       <h3>Blocks</h3>
-      <div class="help-row"><span class="help-syntax">&gt; quote</span><span class="help-desc">Blockquote</span></div>
-      <div class="help-row"><span class="help-syntax">```lang</span><span class="help-desc">Code fence</span></div>
-      <div class="help-row"><span class="help-syntax">$$math$$</span><span class="help-desc">Math block</span></div>
+      <div class="help-row"><span class="help-syntax">&gt; Blockquote</span><span class="help-desc">Quote text</span></div>
+      <div class="help-row"><span class="help-syntax">&gt;&gt; Nested quote</span><span class="help-desc">Nested blockquote</span></div>
       <div class="help-row"><span class="help-syntax">---</span><span class="help-desc">Horizontal rule</span></div>
+      <div class="help-row"><span class="help-syntax">***</span><span class="help-desc">Horizontal rule</span></div>
+      <div class="help-row"><span class="help-syntax">___</span><span class="help-desc">Horizontal rule</span></div>
+    </div>
+    <div class="help-section">
+      <h3>Tables</h3>
+      <div class="help-row"><span class="help-syntax">| Header | Header |<br>|--------|--------|<br>| Cell   | Cell   |</span><span class="help-desc">Basic table</span></div>
+      <div class="help-row"><span class="help-syntax">|:-----|</span><span class="help-desc">Left align</span></div>
+      <div class="help-row"><span class="help-syntax">|:----:|</span><span class="help-desc">Center align</span></div>
+      <div class="help-row"><span class="help-syntax">|-----:|</span><span class="help-desc">Right align</span></div>
+    </div>
+    <div class="help-section">
+      <h3>Line Breaks &amp; Paragraphs</h3>
+      <div class="help-row"><span class="help-syntax">Line ending with two spaces  <br>Next line</span><span class="help-desc">Line break</span></div>
+      <div class="help-row"><span class="help-syntax">Line ending with&lt;br&gt;<br>Next line</span><span class="help-desc">HTML line break</span></div>
+      <div class="help-row"><span class="help-syntax">Paragraph 1<br><br>Paragraph 2</span><span class="help-desc">Paragraph break</span></div>
+    </div>
+    <div class="help-section">
+      <h3>Escaping &amp; HTML</h3>
+      <div class="help-row"><span class="help-syntax">\* Escaped asterisk</span><span class="help-desc">Literal character</span></div>
+      <div class="help-row"><span class="help-syntax">&lt;em&gt;HTML tag&lt;/em&gt;</span><span class="help-desc">Raw HTML</span></div>
+      <div class="help-row"><span class="help-syntax">&lt;!-- Comment --&gt;</span><span class="help-desc">HTML comment</span></div>
     </div>
     <div class="help-section">
       <h3>Keyboard Shortcuts</h3>
@@ -476,8 +592,55 @@
       <div class="help-kbd-row"><span class="help-kbd-label">Sidebar</span><span class="help-kbd-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>L</kbd></span></div>
       <div class="help-kbd-row"><span class="help-kbd-label">Preview</span><span class="help-kbd-keys"><kbd>Ctrl</kbd><kbd>/</kbd></span></div>
       <div class="help-kbd-row"><span class="help-kbd-label">Focus mode</span><span class="help-kbd-keys"><kbd>F8</kbd></span></div>
-      <div class="help-kbd-row"><span class="help-kbd-label">Typewriter</span><span class="help-kbd-keys"><kbd>F9</kbd></span></div>
-      <div class="help-kbd-row"><span class="help-kbd-label">Vim mode</span><span class="help-kbd-keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>V</kbd></span></div>
+    </div>
+    <div class="help-section">
+      <h3>Vim Commands</h3>
+      <div class="help-subsection">
+        <h4>Modes</h4>
+        <div class="help-row"><span class="help-syntax">i</span><span class="help-desc">Enter INSERT mode</span></div>
+        <div class="help-row"><span class="help-syntax">a</span><span class="help-desc">Insert after cursor</span></div>
+        <div class="help-row"><span class="help-syntax">o</span><span class="help-desc">New line below</span></div>
+        <div class="help-row"><span class="help-syntax">O</span><span class="help-desc">New line above</span></div>
+        <div class="help-row"><span class="help-syntax">Esc</span><span class="help-desc">Return to NORMAL mode</span></div>
+        <div class="help-row"><span class="help-syntax">v</span><span class="help-desc">Enter VISUAL mode</span></div>
+      </div>
+      <div class="help-subsection">
+        <h4>Navigation</h4>
+        <div class="help-row"><span class="help-syntax">h j k l</span><span class="help-desc">Left, down, up, right</span></div>
+        <div class="help-row"><span class="help-syntax">w</span><span class="help-desc">Next word</span></div>
+        <div class="help-row"><span class="help-syntax">b</span><span class="help-desc">Previous word</span></div>
+        <div class="help-row"><span class="help-syntax">e</span><span class="help-desc">End of word</span></div>
+        <div class="help-row"><span class="help-syntax">0</span><span class="help-desc">Start of line</span></div>
+        <div class="help-row"><span class="help-syntax">$</span><span class="help-desc">End of line</span></div>
+        <div class="help-row"><span class="help-syntax">gg</span><span class="help-desc">Go to top</span></div>
+        <div class="help-row"><span class="help-syntax">G</span><span class="help-desc">Go to bottom</span></div>
+        <div class="help-row"><span class="help-syntax">Ctrl+f</span><span class="help-desc">Page down</span></div>
+        <div class="help-row"><span class="help-syntax">Ctrl+b</span><span class="help-desc">Page up</span></div>
+      </div>
+      <div class="help-subsection">
+        <h4>Editing</h4>
+        <div class="help-row"><span class="help-syntax">x</span><span class="help-desc">Delete character</span></div>
+        <div class="help-row"><span class="help-syntax">dd</span><span class="help-desc">Delete line</span></div>
+        <div class="help-row"><span class="help-syntax">yy</span><span class="help-desc">Copy line</span></div>
+        <div class="help-row"><span class="help-syntax">p</span><span class="help-desc">Paste after</span></div>
+        <div class="help-row"><span class="help-syntax">P</span><span class="help-desc">Paste before</span></div>
+        <div class="help-row"><span class="help-syntax">u</span><span class="help-desc">Undo</span></div>
+        <div class="help-row"><span class="help-syntax">Ctrl+r</span><span class="help-desc">Redo</span></div>
+        <div class="help-row"><span class="help-syntax">r</span><span class="help-desc">Replace character</span></div>
+        <div class="help-row"><span class="help-syntax">cw</span><span class="help-desc">Change word</span></div>
+      </div>
+      <div class="help-subsection">
+        <h4>Commands</h4>
+        <div class="help-row"><span class="help-syntax">:w</span><span class="help-desc">Save file</span></div>
+        <div class="help-row"><span class="help-syntax">:q</span><span class="help-desc">Quit (if saved)</span></div>
+        <div class="help-row"><span class="help-syntax">:wq</span><span class="help-desc">Save and quit</span></div>
+        <div class="help-row"><span class="help-syntax">:help</span><span class="help-desc">Show this help</span></div>
+        <div class="help-row"><span class="help-syntax">:20</span><span class="help-desc">Go to line 20</span></div>
+        <div class="help-row"><span class="help-syntax">:20,30d</span><span class="help-desc">Delete lines 20-30</span></div>
+        <div class="help-row"><span class="help-syntax">/text</span><span class="help-desc">Search for text</span></div>
+        <div class="help-row"><span class="help-syntax">n</span><span class="help-desc">Next search result</span></div>
+        <div class="help-row"><span class="help-syntax">N</span><span class="help-desc">Previous search result</span></div>
+      </div>
     </div>
   </div>
 </aside>

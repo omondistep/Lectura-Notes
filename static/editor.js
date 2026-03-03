@@ -73,6 +73,45 @@ md.core.ruler.after("inline", "checkbox", (state) => {
   }
 });
 
+// Highlight support (==text==)
+md.core.ruler.after("inline", "highlight", (state) => {
+  for (const blockToken of state.tokens) {
+    if (blockToken.type !== "inline" || !blockToken.children) continue;
+    const out = [];
+    let i = 0;
+    while (i < blockToken.children.length) {
+      const t = blockToken.children[i];
+      if (t.type === "text" && t.content.includes("==")) {
+        const parts = [];
+        let s = t.content;
+        const re = /==(.*?)==/g;
+        let last = 0, m;
+        while ((m = re.exec(s)) !== null) {
+          if (m.index > last) {
+            const before = new state.Token("text", "", 0);
+            before.content = s.slice(last, m.index);
+            parts.push(before);
+          }
+          const tok = new state.Token("html_inline", "", 0);
+          tok.content = `<mark>${md.utils.escapeHtml(m[1])}</mark>`;
+          parts.push(tok);
+          last = m.index + m[0].length;
+        }
+        if (last < s.length) {
+          const rest = Object.assign({}, t);
+          rest.content = s.slice(last);
+          parts.push(rest);
+        }
+        out.push(...parts);
+      } else {
+        out.push(t);
+      }
+      i++;
+    }
+    blockToken.children = out;
+  }
+});
+
 // :::qa flashcard support
 function preprocessFlashcards(content) {
   return content.replace(
@@ -181,6 +220,12 @@ function markDirty() {
   isDirty = true;
   updateDirtyBadge();
   scheduleHistorySave();
+  
+  // Update Git status when file changes
+  if (typeof updateGitStatus === 'function' && githubUser) {
+    updateGitStatus();
+  }
+  
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(async () => {
     if (isDirty) {
@@ -911,6 +956,8 @@ function closeAllMenus() {
 document.querySelectorAll(".menu-panel button[data-action]").forEach(btn => {
   btn.addEventListener("click", () => {
     closeAllMenus();
+    // Ensure editor has focus before executing action
+    view.focus();
     if (ACTIONS[btn.dataset.action]) ACTIONS[btn.dataset.action]();
   });
 });
@@ -2149,12 +2196,62 @@ document.getElementById("publish-overlay")?.addEventListener("click", e => { if 
 // PREVIEW TOGGLE
 // ═══════════════════════════════════════════════════════════════════════════════
 const previewPane = document.getElementById("preview-pane");
-let previewVisible = true;
+const editorPane = document.getElementById("editor-pane");
+const previewEditorHandle = document.getElementById("preview-editor-resize-handle");
+let editorVisible = true;
 
 function togglePreview() {
-  previewVisible = !previewVisible;
-  previewPane.classList.toggle("hidden-pane", !previewVisible);
+  editorVisible = !editorVisible;
+  editorPane.classList.toggle("hidden-pane", !editorVisible);
+  previewEditorHandle.classList.toggle("hidden-pane", !editorVisible);
+  
+  // Hide/show Vim indicator based on editor visibility
+  const vimIndicator = document.getElementById("vim-mode-indicator");
+  if (vimIndicator) {
+    vimIndicator.classList.toggle("hidden", !editorVisible);
+  }
 }
+
+// Preview-Editor resize functionality
+let isResizingPreviewEditor = false;
+
+previewEditorHandle.addEventListener("mousedown", (e) => {
+  isResizingPreviewEditor = true;
+  document.body.style.cursor = "col-resize";
+  e.preventDefault();
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!isResizingPreviewEditor) return;
+  
+  const main = document.getElementById("main");
+  const sidebar = document.getElementById("sidebar");
+  const rect = main.getBoundingClientRect();
+  const sidebarWidth = sidebar.offsetWidth;
+  
+  // Calculate position relative to main area (excluding sidebar)
+  const x = e.clientX - rect.left - sidebarWidth;
+  const mainWidth = rect.width - sidebarWidth;
+  
+  // Set minimum widths (30% each)
+  const minWidth = mainWidth * 0.3;
+  const maxWidth = mainWidth * 0.7;
+  
+  if (x >= minWidth && x <= maxWidth) {
+    const previewWidth = (x / mainWidth) * 100;
+    const editorWidth = 100 - previewWidth;
+    
+    previewPane.style.flex = `0 0 ${previewWidth}%`;
+    editorPane.style.flex = `0 0 ${editorWidth}%`;
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  if (isResizingPreviewEditor) {
+    isResizingPreviewEditor = false;
+    document.body.style.cursor = "";
+  }
+});
 
 document.getElementById("btn-toggle-preview")?.addEventListener("click", () => { closeAllMenus(); togglePreview(); });
 document.getElementById("btn-toggle-source")?.addEventListener("click", () => { closeAllMenus(); togglePreview(); });
@@ -2203,6 +2300,368 @@ function toggleTypewriter() {
 
 document.getElementById("btn-typewriter")?.addEventListener("click", () => { closeAllMenus(); toggleTypewriter(); });
 if (typewriterMode) document.body.classList.add("typewriter-mode");
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TERMINAL PANEL
+// ═══════════════════════════════════════════════════════════════════════════════
+let terminalVisible = false;
+let terminalCount = 1;
+
+function toggleTerminal() {
+  terminalVisible = !terminalVisible;
+  const terminalPanel = document.getElementById('terminal-panel');
+  const resizeHandle = document.getElementById('terminal-resize-handle');
+  
+  terminalPanel.classList.toggle('hidden', !terminalVisible);
+  resizeHandle.classList.toggle('hidden', !terminalVisible);
+  
+  if (terminalVisible && !document.getElementById('terminal-1').innerHTML) {
+    initializeTerminal('terminal-1');
+  }
+}
+
+function initializeTerminal(terminalId) {
+  const terminal = document.getElementById(terminalId);
+  if (!terminal) return;
+  
+  // Simple terminal simulation
+  terminal.innerHTML = `
+    <div style="margin-bottom: 8px;">
+      <span style="color: #569cd6;">Lectura Terminal</span> - Type commands below
+    </div>
+    <div id="${terminalId}-output"></div>
+    <div style="display: flex; align-items: center;">
+      <span style="color: #4ec9b0;">$</span>
+      <input type="text" id="${terminalId}-input" style="
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: white;
+        margin-left: 8px;
+        outline: none;
+        font-family: inherit;
+        font-size: inherit;
+      " placeholder="Enter command...">
+    </div>
+  `;
+  
+  const input = document.getElementById(`${terminalId}-input`);
+  const output = document.getElementById(`${terminalId}-output`);
+  
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const command = input.value.trim();
+      if (command) {
+        executeCommand(command, output);
+        input.value = '';
+      }
+    }
+  });
+  
+  // Focus input when terminal is shown
+  setTimeout(() => input.focus(), 100);
+}
+
+function executeCommand(command, output) {
+  const commandLine = document.createElement('div');
+  commandLine.innerHTML = `<span style="color: #4ec9b0;">$</span> ${command}`;
+  commandLine.style.marginBottom = '4px';
+  output.appendChild(commandLine);
+  
+  const result = document.createElement('div');
+  result.style.marginBottom = '8px';
+  result.style.color = '#cccccc';
+  
+  // Simple command simulation
+  switch (command.toLowerCase()) {
+    case 'help':
+      result.innerHTML = `Available commands:
+• help - Show this help
+• clear - Clear terminal
+• pwd - Show current directory
+• ls - List files
+• git status - Show git status
+• echo [text] - Echo text`;
+      break;
+    case 'clear':
+      output.innerHTML = '';
+      return;
+    case 'pwd':
+      result.textContent = '/home/user/notes';
+      break;
+    case 'ls':
+      result.innerHTML = `<span style="color: #569cd6;">notes/</span>
+<span style="color: #4ec9b0;">README.md</span>
+<span style="color: #4ec9b0;">document.md</span>`;
+      break;
+    case 'git status':
+      result.innerHTML = `On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  <span style="color: #f39c12;">modified:   ${currentFile || 'document.md'}</span>`;
+      break;
+    default:
+      if (command.startsWith('echo ')) {
+        result.textContent = command.substring(5);
+      } else {
+        result.innerHTML = `<span style="color: #f44747;">Command not found: ${command}</span>`;
+      }
+  }
+  
+  output.appendChild(result);
+  output.scrollTop = output.scrollHeight;
+}
+
+// Terminal toggle event listeners
+document.getElementById('btn-toggle-terminal')?.addEventListener('click', () => {
+  closeAllMenus();
+  toggleTerminal();
+});
+
+document.getElementById('btn-terminal-toggle')?.addEventListener('click', toggleTerminal);
+
+// Keyboard shortcut for terminal
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === '`') {
+    e.preventDefault();
+    toggleTerminal();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GITHUB INTEGRATION
+// ═══════════════════════════════════════════════════════════════════════════════
+let githubToken = localStorage.getItem('github-token');
+let githubUser = null;
+let currentRepo = null;
+
+// GitHub OAuth flow
+document.getElementById('btn-github-signin')?.addEventListener('click', async () => {
+  try {
+    // GitHub OAuth App credentials (set these as environment variables)
+    const CLIENT_ID = 'Ov23liABCDEFGHIJKLMN'; // Replace with your actual GitHub App client ID
+    const REDIRECT_URI = `${window.location.origin}/auth/github/callback`;
+    const SCOPE = 'repo,user:email';
+    
+    // Generate state for security
+    const state = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('github-oauth-state', state);
+    
+    // Build OAuth URL
+    const authUrl = `https://github.com/login/oauth/authorize?` +
+      `client_id=${CLIENT_ID}&` +
+      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
+      `scope=${encodeURIComponent(SCOPE)}&` +
+      `state=${state}`;
+    
+    // Open popup window (like Zed does)
+    const popup = window.open(
+      authUrl,
+      'github-oauth',
+      'width=600,height=700,scrollbars=yes,resizable=yes'
+    );
+    
+    // Listen for OAuth callback
+    const handleMessage = async (event) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'github-auth-success') {
+        popup.close();
+        window.removeEventListener('message', handleMessage);
+        await handleGitHubCallback(event.data.code, event.data.state);
+      } else if (event.data.type === 'github-auth-error') {
+        popup.close();
+        window.removeEventListener('message', handleMessage);
+        setStatus('GitHub authentication failed', true);
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    
+    // Handle popup closed manually
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkClosed);
+        window.removeEventListener('message', handleMessage);
+      }
+    }, 1000);
+    
+  } catch (error) {
+    setStatus('GitHub signin failed', true);
+  }
+});
+
+// Handle OAuth callback (this would be called from the callback page)
+async function handleGitHubCallback(code, state) {
+  try {
+    // Verify state
+    const storedState = localStorage.getItem('github-oauth-state');
+    if (state !== storedState) {
+      throw new Error('Invalid state parameter');
+    }
+    localStorage.removeItem('github-oauth-state');
+    
+    // Exchange code for access token
+    const response = await fetch('/auth/github/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    
+    if (!response.ok) throw new Error('Token exchange failed');
+    
+    const { access_token } = await response.json();
+    
+    // Get user info
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: { 'Authorization': `token ${access_token}` }
+    });
+    
+    if (!userResponse.ok) throw new Error('Failed to get user info');
+    
+    const user = await userResponse.json();
+    
+    githubToken = access_token;
+    githubUser = user;
+    localStorage.setItem('github-token', access_token);
+    
+    updateGitPanel();
+    setStatus(`Signed in as ${user.login}`);
+  } catch (error) {
+    setStatus('GitHub authentication failed', true);
+  }
+}
+
+// Sign out
+document.getElementById('btn-github-signout')?.addEventListener('click', () => {
+  githubToken = null;
+  githubUser = null;
+  currentRepo = null;
+  localStorage.removeItem('github-token');
+  updateGitPanel();
+  setStatus('Signed out of GitHub');
+});
+
+// Commit changes
+document.getElementById('btn-git-commit')?.addEventListener('click', async () => {
+  const message = document.getElementById('git-commit-message').value.trim();
+  if (!message) {
+    setStatus('Commit message required', true);
+    return;
+  }
+  
+  try {
+    // In a real implementation, this would commit files to the repository
+    setStatus('Committing changes...');
+    
+    // Simulate commit
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    document.getElementById('git-commit-message').value = '';
+    updateGitStatus();
+    setStatus('Changes committed');
+  } catch (error) {
+    setStatus('Commit failed', true);
+  }
+});
+
+// Push changes
+document.getElementById('btn-git-push')?.addEventListener('click', async () => {
+  try {
+    setStatus('Pushing to GitHub...');
+    
+    // Simulate push
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    updateGitStatus();
+    setStatus('Pushed to GitHub');
+  } catch (error) {
+    setStatus('Push failed', true);
+  }
+});
+
+// Update Git panel UI
+function updateGitPanel() {
+  const authSection = document.getElementById('git-auth');
+  const gitPanel = document.getElementById('git-panel');
+  
+  if (githubUser) {
+    authSection.classList.add('hidden');
+    gitPanel.classList.remove('hidden');
+    
+    document.getElementById('git-avatar').src = githubUser.avatar_url;
+    document.getElementById('git-username').textContent = githubUser.login;
+    document.getElementById('git-repo').textContent = currentRepo || 'No repository';
+    
+    updateGitStatus();
+  } else {
+    authSection.classList.remove('hidden');
+    gitPanel.classList.add('hidden');
+  }
+}
+
+// Update Git status
+function updateGitStatus() {
+  const changesEl = document.getElementById('git-changes');
+  const commitBtn = document.getElementById('btn-git-commit');
+  const pushBtn = document.getElementById('btn-git-push');
+  const messageInput = document.getElementById('git-commit-message');
+  
+  // Simulate checking for changes
+  const hasChanges = isDirty; // Use existing dirty state
+  const hasCommits = false; // Simulate no unpushed commits
+  
+  if (hasChanges) {
+    changesEl.textContent = '1 file changed';
+    commitBtn.disabled = !messageInput.value.trim();
+    updateFileChanges();
+  } else {
+    changesEl.textContent = 'No changes';
+    commitBtn.disabled = true;
+  }
+  
+  pushBtn.disabled = !hasCommits;
+}
+
+// Update file changes list
+function updateFileChanges() {
+  const fileList = document.getElementById('git-file-changes');
+  
+  if (isDirty && currentFile) {
+    fileList.innerHTML = `
+      <div class="git-file-item">
+        <span class="git-file-status modified">M</span>
+        <span class="git-file-name">${currentFile}</span>
+      </div>
+    `;
+  } else {
+    fileList.innerHTML = '';
+  }
+}
+
+// Enable/disable commit button based on message
+document.getElementById('git-commit-message')?.addEventListener('input', (e) => {
+  const commitBtn = document.getElementById('btn-git-commit');
+  commitBtn.disabled = !e.target.value.trim() || !isDirty;
+});
+
+// Initialize GitHub integration
+if (githubToken) {
+  // Verify stored token on startup
+  fetch('https://api.github.com/user', {
+    headers: { 'Authorization': `token ${githubToken}` }
+  })
+  .then(response => response.ok ? response.json() : Promise.reject())
+  .then(user => {
+    githubUser = user;
+    updateGitPanel();
+  })
+  .catch(() => {
+    localStorage.removeItem('github-token');
+    githubToken = null;
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELP PANEL

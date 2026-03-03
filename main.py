@@ -13,6 +13,7 @@ import logging
 import os
 import shutil
 import urllib.request
+import httpx
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
@@ -1024,6 +1025,87 @@ async def post_config(body: ConfigBody):
     body.config.setdefault("gdrive", {}).pop("connected", None)
     save_config(body.config)
     return {"saved": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GITHUB OAUTH ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# GitHub OAuth configuration
+GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', 'your_github_client_id')
+GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', 'your_github_client_secret')
+
+class GitHubTokenRequest(BaseModel):
+    code: str
+
+@app.post("/auth/github/token")
+async def github_token_exchange(request: GitHubTokenRequest):
+    """Exchange GitHub OAuth code for access token"""
+    try:
+        async with httpx.AsyncClient() as client:
+            # Exchange code for access token
+            token_response = await client.post(
+                'https://github.com/login/oauth/access_token',
+                data={
+                    'client_id': GITHUB_CLIENT_ID,
+                    'client_secret': GITHUB_CLIENT_SECRET,
+                    'code': request.code,
+                },
+                headers={'Accept': 'application/json'}
+            )
+            
+            if token_response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Token exchange failed")
+            
+            token_data = token_response.json()
+            
+            if 'error' in token_data:
+                raise HTTPException(status_code=400, detail=token_data.get('error_description', 'OAuth error'))
+            
+            return {"access_token": token_data.get('access_token')}
+            
+    except httpx.RequestError as e:
+        logger.error(f"GitHub OAuth error: {e}")
+        raise HTTPException(status_code=500, detail="OAuth request failed")
+    except Exception as e:
+        logger.error(f"GitHub OAuth error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/auth/github/callback")
+async def github_callback(code: str = None, state: str = None, error: str = None):
+    """Handle GitHub OAuth callback"""
+    if error:
+        return HTMLResponse(f"""
+            <script>
+                window.opener.postMessage({{
+                    type: 'github-auth-error',
+                    error: '{error}'
+                }}, '*');
+                window.close();
+            </script>
+        """)
+    
+    if not code or not state:
+        return HTMLResponse("""
+            <script>
+                window.opener.postMessage({
+                    type: 'github-auth-error',
+                    error: 'Missing code or state'
+                }, '*');
+                window.close();
+            </script>
+        """)
+    
+    return HTMLResponse(f"""
+        <script>
+            window.opener.postMessage({{
+                type: 'github-auth-success',
+                code: '{code}',
+                state: '{state}'
+            }}, '*');
+            window.close();
+        </script>
+    """)
 
 
 if __name__ == "__main__":

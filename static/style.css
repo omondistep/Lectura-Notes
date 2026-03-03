@@ -863,7 +863,45 @@ li.tree-file:hover .del-btn,
   background: var(--bg-preview);
   border-left: 1px solid var(--border-dim);
 }
-#preview-pane.hidden-pane { display: none !important; }
+
+#editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-editor);
+  border-left: 1px solid var(--border-dim);
+}
+#editor-pane.hidden-pane { display: none !important; }
+
+/* Resize handle between preview and editor */
+#preview-editor-resize-handle {
+  width: 4px;
+  background: var(--border-dim);
+  cursor: col-resize;
+  flex-shrink: 0;
+  transition: background-color 0.2s;
+}
+
+#preview-editor-resize-handle:hover {
+  background: var(--accent);
+}
+
+#preview-editor-resize-handle.hidden-pane {
+  display: none !important;
+}
+
+/* When editor is hidden, preview takes full width with centered content like Typora */
+#main:has(#editor-pane.hidden-pane) #preview-pane {
+  flex: 1;
+}
+
+#main:has(#editor-pane.hidden-pane) #preview-pane #preview {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 40px 60px;
+  width: 100%;
+}
 
 #preview {
   flex: 1;
@@ -873,7 +911,12 @@ li.tree-file:hover .del-btn,
   font-family: var(--font-prose);
   font-size: var(--preview-font-size);
   color: var(--text);
-  max-width: 860px;
+  width: 100%;
+  background: var(--bg-preview);
+}
+
+#cm-editor {
+  background: var(--bg-editor);
 }
 
 /* ── preview typography ───────────────────────────────────────────────────── */
@@ -1227,6 +1270,12 @@ li.tree-file:hover .del-btn,
   margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border-dim);
 }
 
+.help-subsection { margin: 12px 0; }
+.help-subsection h4 { 
+  font-size: 9px; font-weight: 600; color: var(--text-dim); 
+  margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; 
+}
+
 .help-row {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 4px 10px; margin-bottom: 5px; font-size: 12.5px;
@@ -1444,4 +1493,457 @@ button:focus-visible, input:focus-visible {
   .del-btn { opacity: 1; }
   .menu-trigger { padding: 8px 12px; }
   li.tree-file, li.tree-folder > .folder-header { min-height: 40px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   GIT PANEL
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.git-section { margin-bottom: 16px; }
+
+.git-signin-btn {
+  width: 100%;
+  padding: 12px;
+  background: #24292e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.git-signin-btn:hover {
+  background: #1c2025;
+}
+
+.git-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-surface);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.git-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.git-user-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.git-username {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.git-repo {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-signout-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.git-signout-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.git-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+
+.git-branch {
+  background: var(--accent);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.git-changes {
+  color: var(--text-dim);
+}
+
+.git-commit-section {
+  margin-bottom: 12px;
+}
+
+#git-commit-message {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-editor);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+#git-commit-message:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.git-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.git-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.git-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.git-btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.git-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.git-btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.git-btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.git-file-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.git-file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.git-file-item:hover {
+  background: var(--bg-hover);
+}
+
+.git-file-status {
+  width: 12px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.git-file-status.modified { color: #f39c12; }
+.git-file-status.added { color: #27ae60; }
+.git-file-status.deleted { color: #e74c3c; }
+
+.git-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TERMINAL PANEL
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.terminal-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 300px;
+  background: var(--bg-editor);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.2s ease;
+}
+
+.terminal-panel.hidden {
+  transform: translateY(100%);
+}
+
+.terminal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.terminal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.terminal-tab.active {
+  background: var(--bg-editor);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.terminal-tab-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  font-size: 12px;
+}
+
+.terminal-tab-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.terminal-new-tab {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terminal-new-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.terminal-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.terminal-control-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terminal-control-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.terminal-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-instance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #1e1e1e;
+  color: #ffffff;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  padding: 8px;
+  overflow-y: auto;
+  display: none;
+}
+
+.terminal-instance.active {
+  display: block;
+}
+
+.terminal-resize-handle {
+  position: fixed;
+  bottom: 300px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--border-dim);
+  cursor: row-resize;
+  z-index: 101;
+  transition: background-color 0.2s;
+}
+
+.terminal-resize-handle:hover {
+  background: var(--accent);
+}
+
+.terminal-resize-handle.hidden {
+  display: none;
+}
+
+/* Adjust main content when terminal is open */
+body:has(.terminal-panel:not(.hidden)) #main {
+  padding-bottom: 300px;
+}
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TERMINAL PANEL
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.terminal-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 300px;
+  background: var(--bg-editor);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.2s ease;
+}
+
+.terminal-panel.hidden {
+  transform: translateY(100%);
+}
+
+.terminal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.terminal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.terminal-tab.active {
+  background: var(--bg-editor);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.terminal-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-instance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #1e1e1e;
+  color: #ffffff;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  padding: 8px;
+  overflow-y: auto;
+  display: none;
+}
+
+.terminal-instance.active {
+  display: block;
+}
+
+/* Adjust main content when terminal is open */
+body:has(.terminal-panel:not(.hidden)) #main {
+  padding-bottom: 300px;
 }
